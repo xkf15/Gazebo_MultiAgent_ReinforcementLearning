@@ -24,55 +24,68 @@ import utils
 
 ## ------------------------------
 
-# 1 - train target driven actor
+# 1 - train target driven actor, I think it is useless now.
 # 2 - train collision avoidance actor
 # 3 - differential driver
 TRAIN_TYPE = 2
 
-MAX_OPTIMIZATION_STEP = 30
-TIME_DELAY = 5
+MAX_OPTIMIZATION_STEP = 10#30
+TIME_DELAY = 2#5
 STATE_DIM = 2
 SENSOR_DIM = 360
 ACTION_DIM = 2
 MAX_EPISODES = 5000
-MAX_STEPS = 30
-MAX_BUFFER = 50000
+MAX_STEPS = 360 #30
+MAX_BUFFER = 500000 #50000
 HER_K = 8
 TARGET_THRESHOLD = 0.01
-TEST_ROUND = 20
-TEST_EPISODE = 20 if TRAIN_TYPE == 1 else 40
-AGENT_NUMBER = 16
+TEST_ROUND = 10 #20
+# TEST_EPISODE = 20 if TRAIN_TYPE == 1 else 40
+TEST_EPISODE = 20
+AGENT_NUMBER = 4
 OBSERVATION_RANGE = 2
-MIN_EXPERIMENCE_NUMBER = 3
+MIN_EXPERIMENCE_NUMBER = 30#3
 
 USE_HER = False
 USE_DIR = False
 USE_TEST = True
 USE_SHAPED_REWARD = False
-USE_LASER_REWARD = True
+USE_LASER_REWARD = False#True
 USE_SURVIVE_REWARD = False
 
-CONTINUE_TRAIN = False
+CONTINUE_TRAIN = True
+
+# use absolute coordinate to generate
+GENERATE_LASER_FORM_POS = True
+ROBOT_LENGTH = 0.25
+LASER_RANGE = 3.5
+
+# new reward params
+omega_target = 10.0
+TARGET_DIM = 2
+reward_one_step = -0.1 # get penalty each step
 
 ## ------------------------------
 
 # noise parameters
 mu = 0 
 theta = 2
-sigma = 0.2
+sigma = 1.0#0.2
+
 # learning rate
-actor_lr = 1e-4
-critic_lr = 1e-3
+actor_lr = 1e-5 # 1e-4
+critic_lr = 1e-4 # 1e-3
 batch_size = 256
+
 # update parameters
 gamma = 0.99
 tau = 0.001
-hmm_state = 20
+hmm_state = 10
 
 ## ------------------------------
 
 # define model
-model = HNRN(max_buffer=MAX_BUFFER, state_dim=STATE_DIM, sensor_dim=SENSOR_DIM, action_dim=ACTION_DIM, 
+model = HNRN(max_buffer=MAX_BUFFER, state_dim=STATE_DIM, sensor_dim=SENSOR_DIM, target_dim=TARGET_DIM, action_dim=ACTION_DIM, 
              mu=mu, theta=theta, sigma=sigma, gamma=gamma, tau=tau, train_type=TRAIN_TYPE,
              actor_lr=actor_lr, critic_lr=critic_lr, batch_size=batch_size, hmm_state=hmm_state)
 
@@ -103,6 +116,10 @@ print('\n==================================== Start training ===================
 
 for i_episode in range(MAX_EPISODES):
 
+    crash_time_episode = 0
+    succeed_time_episode = 0
+    terminal_flag = [False for i in range(AGENT_NUMBER)]
+
     # placeholder for states
     all_controls = control_group_msgs()
     all_current_states = state_group_msgs()
@@ -126,7 +143,9 @@ for i_episode in range(MAX_EPISODES):
     for i in range(AGENT_NUMBER):
         all_controls.group_control[i].reset = False
     resp_ = pytorch_io_service(all_controls)
-    time.sleep(0.2)
+    if GENERATE_LASER_FORM_POS is True:
+        resp_.all_group_states.group_state = utils.generate_laser_from_pos(resp_.all_group_states.group_state, LASER_RANGE, ROBOT_LENGTH)
+    time.sleep(0.05)
     
 
     episode_experience = defaultdict(list)
@@ -145,8 +164,12 @@ for i_episode in range(MAX_EPISODES):
         for i_agents in range(AGENT_NUMBER):
             # update current state
             all_current_states.group_state[i_agents] = copy.deepcopy(resp_.all_group_states.group_state[i_agents])
+            #print(all_current_states.group_state[i_agents].laserScan)
+            #if i_agents == 0:
+            #    print(all_current_states.group_state[i_agents])
             all_controls.group_control[i_agents].linear_x, all_controls.group_control[i_agents].angular_z = \
             model.sample_action(current_state=all_current_states.group_state[i_agents], explore=True)
+
             all_controls.group_control[i_agents].reset = False
             reset_coldtime[i_agents] = 0
 
@@ -154,7 +177,14 @@ for i_episode in range(MAX_EPISODES):
         # when one agent is terminated, start a new step after reseting
         for t in range(TIME_DELAY):
             resp_ = pytorch_io_service(all_controls)
+            if GENERATE_LASER_FORM_POS is True:
+                resp_.all_group_states.group_state = utils.generate_laser_from_pos(resp_.all_group_states.group_state, LASER_RANGE, ROBOT_LENGTH)
             all_controls = utils.check_reset_flag(all_controls, AGENT_NUMBER)
+
+# test whether blocked
+#            if t is 0:
+#                print(0, all_controls.group_control[0].linear_x, all_controls.group_control[0].angular_z)
+
             for i_agents in range(AGENT_NUMBER):
                 # update all states
                 if (terminate_flag[i_agents] == 0):
@@ -164,13 +194,24 @@ for i_episode in range(MAX_EPISODES):
                 if all_next_states.group_state[i_agents].terminal and reset_coldtime[i_agents] == 0:
                     reset_coldtime[i_agents] = 1
                     terminate_flag[i_agents] = 1
-                    all_controls.group_control[i_agents].reset = True
+                    # all_controls.group_control[i_agents].reset = True
                     if all_next_states.group_state[i_agents].reward == TERMINAL_REWARD:
-                        succeed_time += 1
+                        if terminal_flag[i_agents] == False:
+                            succeed_time += 1
+                            succeed_time_episode += 1
+                        terminal_flag[i_agents] = True
+                        all_controls.group_control[i_agents].reset = True
+                        for tt in range(AGENT_NUMBER):
+                            if terminal_flag[tt] == False:
+                                all_controls.group_control[i_agents].reset = False
                     elif all_next_states.group_state[i_agents].reward == COLLISION_REWARD:
                         crash_time += 1
-            time.sleep(0.1)
+                        crash_time_episode += 1
+                        all_controls.group_control[i_agents].reset = True
+            time.sleep(0.05)
         resp_ = pytorch_io_service(all_controls) # make sure reset operation has been done
+        if GENERATE_LASER_FORM_POS is True:
+            resp_.all_group_states.group_state = utils.generate_laser_from_pos(resp_.all_group_states.group_state, LASER_RANGE, ROBOT_LENGTH)
 
         # check if one agent start a new loop
         for i_agents in range(AGENT_NUMBER):
@@ -183,7 +224,22 @@ for i_episode in range(MAX_EPISODES):
                 if USE_SURVIVE_REWARD is True:
                     survive_time[i_agents] += 1
             # temporary save experience, each loop of each agent should be saved separately
+            # Besides, we calculate other rewards, such as the target rewards, before save the experience
+            if all_next_states.group_state[i_agents].terminal == False:
+                all_next_states.group_state[i_agents].reward = utils.add_all_rewards(all_current_states.group_state[i_agents], all_next_states.group_state[i_agents], omega_target, reward_one_step)
             episode_experience[experimence_mapping[i_agents]].append(utils.combine_states(all_current_states, all_next_states, all_controls, i_agents, survive_time))
+
+        # reset terminal flags
+        reset_terminal_flags = True
+        for tt in range(AGENT_NUMBER):
+            if terminal_flag[tt] == False:
+                reset_terminal_flags = False
+        if reset_terminal_flags == True:
+            terminal_flag = [False for i in range(AGENT_NUMBER)]
+            
+
+    # exploration params decay
+    model.noise.decay()
 
 
     #####################################
@@ -207,8 +263,8 @@ for i_episode in range(MAX_EPISODES):
                 new_experience = utils.shaped_reward_experience(new_experience)    
             if TRAIN_TYPE == 2 and USE_LASER_REWARD is True:
                 new_experience = utils.laser_shape_reward_experience(new_experience)   
-            
-            new_experience = utils.generate_experience(new_experience)
+
+            # new_experience = utils.generate_experience(new_experience)
             model.buffer.add(new_experience)
 
             '''
@@ -241,8 +297,9 @@ for i_episode in range(MAX_EPISODES):
     if TRAIN_TYPE is not 3:
         for i_learning in range(MAX_OPTIMIZATION_STEP):
             loss_c, loss_a = model.learn()
-            losses.append([loss_c.cpu().data.tolist(), loss_a.cpu().data.tolist()])
-        print('Episode: %d | A-loss: %6f | C-loss: %6f | Succeed : %d | Crash : %d' % (i_episode+1, loss_a, loss_c, succeed_time, crash_time))
+            losses.append([loss_c.cpu().data.tolist(), loss_a.cpu().data.tolist(), succeed_time_episode, crash_time_episode])
+            # print(loss_c.cpu().data.tolist(), loss_a.cpu().data.tolist() ,crash_time_episode)
+        print('Episode: %d | A-loss: %6f | C-loss: %6f | Succeed : %d | Crash : %d | Buffer : %d' % (i_episode+1, loss_a, loss_c, succeed_time_episode, crash_time_episode, model.buffer.len))
         dbfile = open('result/loss/loss.txt', 'w')
         pickle.dump(losses, dbfile)
         dbfile.close()
@@ -253,10 +310,12 @@ for i_episode in range(MAX_EPISODES):
     ##### For testing #####
     #######################
     if (i_episode+1) % TEST_EPISODE is 0 and USE_TEST is True:
-        test_success_rate = 0
+        terminal_flag = [False for i in range(AGENT_NUMBER)]
+        test_success_time = 0
+        test_crash_time = 0
         total_reward = 0
         print('\n==================================== Start to test ====================================')
-        pbar = tqdm(total=TEST_ROUND*MAX_STEPS)
+        pbar = tqdm(total=TEST_ROUND * MAX_STEPS)
         for i_test in range(TEST_ROUND):
 
             # for every episode, reset environment first. Make sure getting the right position
@@ -265,12 +324,17 @@ for i_episode in range(MAX_EPISODES):
                 all_controls.group_control[i].angular_z = 0.0
                 all_controls.group_control[i].reset = True
             resp_ = pytorch_io_service(all_controls)
+            if GENERATE_LASER_FORM_POS is True:
+                resp_.all_group_states.group_state = utils.generate_laser_from_pos(resp_.all_group_states.group_state, LASER_RANGE, ROBOT_LENGTH)
 
             # after reseting, publish a new action for all agents
             for i in range(AGENT_NUMBER):
                 all_controls.group_control[i].reset = False
-            time.sleep(0.2)
+            time.sleep(0.05)
             resp_ = pytorch_io_service(all_controls)
+            if GENERATE_LASER_FORM_POS is True:
+                resp_.all_group_states.group_state = utils.generate_laser_from_pos(resp_.all_group_states.group_state, LASER_RANGE, ROBOT_LENGTH)
+
             reset_coldtime = np.zeros(AGENT_NUMBER)
 
             for i_step in range(MAX_STEPS):
@@ -285,32 +349,58 @@ for i_episode in range(MAX_EPISODES):
                 # when one agent is terminated, start a new step after reseting
                 for t in range(TIME_DELAY):
                     resp_ = pytorch_io_service(all_controls)
+                    if GENERATE_LASER_FORM_POS is True:
+                        resp_.all_group_states.group_state = utils.generate_laser_from_pos(resp_.all_group_states.group_state, LASER_RANGE, ROBOT_LENGTH)
+
                     all_controls = utils.check_reset_flag(all_controls, AGENT_NUMBER)
                     for i_agents in range(AGENT_NUMBER):
                         # check terminal flags
                         if resp_.all_group_states.group_state[i_agents].terminal and reset_coldtime[i_agents] == 0:
                             reset_coldtime[i_agents] = 1
-                            all_controls.group_control[i_agents].reset = True
+                            #all_controls.group_control[i_agents].reset = True
                             total_reward += resp_.all_group_states.group_state[i_agents].reward
-
                             if resp_.all_group_states.group_state[i_agents].reward == TERMINAL_REWARD:
-                                test_success_rate += 1
-                    time.sleep(0.1)
+                                if terminal_flag[i_agents] == False:
+                                    test_success_time += 1
+                                terminal_flag[i_agents] = True
+                                all_controls.group_control[i_agents].reset = True
+                                for tt in range(AGENT_NUMBER):
+                                    if terminal_flag[tt] == False:
+                                        all_controls.group_control[i_agents].reset = False
+                            elif resp_.all_group_states.group_state[i_agents].reward == COLLISION_REWARD:
+                                test_crash_time += 1
+                                all_controls.group_control[i_agents].reset = True
+                    time.sleep(0.05)
                 resp_ = pytorch_io_service(all_controls) # make sure reset operation has been done
+                if GENERATE_LASER_FORM_POS is True:
+                    resp_.all_group_states.group_state = utils.generate_laser_from_pos(resp_.all_group_states.group_state, LASER_RANGE, ROBOT_LENGTH)
+
+                # reset terminal flags
+                reset_terminal_flags = True
+                for tt in range(AGENT_NUMBER):
+                    if terminal_flag[tt] == False:
+                        reset_terminal_flags = False
+                if reset_terminal_flags == True:
+                    terminal_flag = [False for i in range(AGENT_NUMBER)]
+
                 pbar.update(1)
 
         pbar.close()
         outfile = open("test_rate.txt", 'a')
-        if TRAIN_TYPE is not 2:
-            outfile.write(str(test_success_rate))
-            if test_success_rate >= max_test_success_time:
-                max_test_success_time = test_success_rate
-                model.save_models()
-        else:
-            outfile.write(str(total_reward/TEST_ROUND))
-            if total_reward >= max_total_reward:
-                max_total_reward = total_reward
-                model.save_models()
+        outfile.write(str(test_success_time))
+        if test_success_time >= max_test_success_time:
+            max_test_success_time = test_success_time
+            model.save_models()
+#        if TRAIN_TYPE is not 2:
+#            outfile.write(str(test_success_rate))
+#            if test_success_rate >= max_test_success_time:
+#                max_test_success_time = test_success_rate
+#                model.save_models()
+#        else:
+#            outfile.write(str(total_reward/TEST_ROUND))
+#            if total_reward >= max_total_reward:
+#                max_total_reward = total_reward
+#                model.save_models()
         outfile.write('\n')
         outfile.close()
 

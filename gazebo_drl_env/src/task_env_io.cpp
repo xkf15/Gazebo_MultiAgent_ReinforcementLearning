@@ -141,9 +141,13 @@ bool RL::TaskEnvIO::ServiceCallback(gazebo_drl_env::SimpleCtrl::Request &req, ga
     {
         if (req.all_group_controls.group_control[i].reset)
         {
-						
-            this->ResetOneAgent(ROBOT_NAMES[i]);
-            ROS_ERROR("[RESET ONE AGENT] -- [%d/%d]", i, this->AGENT_NUM);
+						// reset all agent when crashed
+            for (int j = 0; j <  this->AGENT_NUM; j++) {
+                this->ResetOneAgent(ROBOT_NAMES[j]);
+						// this->ResetOneAgent(ROBOT_NAMES[i]);
+            		ROS_INFO("[RESET ONE AGENT] -- [%d/%d]", i, this->AGENT_NUM);
+            }
+            break;
         }
         else
             ActionPub(req.all_group_controls.group_control[i].linear_x, req.all_group_controls.group_control[i].angular_z, ROBOT_NAMES[i]);
@@ -161,9 +165,11 @@ bool RL::TaskEnvIO::ServiceCallback(gazebo_drl_env::SimpleCtrl::Request &req, ga
         ignition::math::Pose3d robotState = RL::GazePose2IgnPose(FindPosebyName(ROBOT_NAMES[i]));
 
         gazebo_drl_env::state_msgs tempState;
-        // return current position
+        // return current pose
         tempState.current_x = robotState.Pos().X();
         tempState.current_y = robotState.Pos().Y();
+        tempState.current_yaw = robotState.Rot().Yaw();
+
         // return target position
         tempState.target_x = targetPose[i].X();
         tempState.target_y = targetPose[i].Y();

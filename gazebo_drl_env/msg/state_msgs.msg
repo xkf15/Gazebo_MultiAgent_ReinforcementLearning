@@ -4,6 +4,7 @@ float32 reward
 
 float32 current_x
 float32 current_y
+float32 current_yaw
 float32 target_x
 float32 target_y
 

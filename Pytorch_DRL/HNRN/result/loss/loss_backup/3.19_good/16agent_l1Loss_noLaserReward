@@ -1,0 +1,53 @@
+# operation params
+Time_Delay = 5
+time.sleep(0.1)
+
+# 1 - train target driven actor, I think it is useless now.
+# 2 - train collision avoidance actor
+# 3 - differential driver
+TRAIN_TYPE = 2
+
+# training params
+loss = smooth_L1
+MAX_OPTIMIZATION_STEP = 30
+TIME_DELAY = 5
+STATE_DIM = 2
+SENSOR_DIM = 360
+ACTION_DIM = 2
+MAX_EPISODES = 5000
+MAX_STEPS = 30
+MAX_BUFFER = 500000
+HER_K = 8
+TARGET_THRESHOLD = 0.01
+TEST_ROUND = 20
+TEST_EPISODE = 20 if TRAIN_TYPE == 1 else 40
+AGENT_NUMBER = 16
+OBSERVATION_RANGE = 2
+MIN_EXPERIMENCE_NUMBER = 3
+
+USE_HER = False
+USE_DIR = False
+USE_TEST = True
+USE_SHAPED_REWARD = False
+USE_LASER_REWARD = True
+USE_SURVIVE_REWARD = False
+
+CONTINUE_TRAIN = False
+
+## ------------------------------
+
+# noise parameters
+mu = 0 
+theta = 2
+sigma = 0.2
+
+# learning rate
+actor_lr = 1e-4
+critic_lr = 1e-3
+batch_size = 256
+
+# update parameters
+gamma = 0.99
+tau = 0.001
+hmm_state = 20
+

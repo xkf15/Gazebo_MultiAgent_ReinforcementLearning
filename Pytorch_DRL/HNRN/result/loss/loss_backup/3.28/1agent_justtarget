@@ -1,0 +1,56 @@
+# 1 - train target driven actor, I think it is useless now.
+# 2 - train collision avoidance actor
+# 3 - differential driver
+TRAIN_TYPE = 2
+
+MAX_OPTIMIZATION_STEP = 30
+TIME_DELAY = 2#5
+STATE_DIM = 2
+SENSOR_DIM = 360
+ACTION_DIM = 2
+MAX_EPISODES = 5000
+MAX_STEPS = 360 #30
+MAX_BUFFER = 5000000 #50000
+HER_K = 8
+TARGET_THRESHOLD = 0.01
+TEST_ROUND = 10 #20
+# TEST_EPISODE = 20 if TRAIN_TYPE == 1 else 40
+TEST_EPISODE = 20
+AGENT_NUMBER = 1
+OBSERVATION_RANGE = 2
+MIN_EXPERIMENCE_NUMBER = 20#3
+
+USE_HER = False
+USE_DIR = False
+USE_TEST = True
+USE_SHAPED_REWARD = False
+USE_LASER_REWARD = False#True
+USE_SURVIVE_REWARD = False
+
+CONTINUE_TRAIN = False
+
+# use absolute coordinate to generate
+GENERATE_LASER_FORM_POS = True
+ROBOT_LENGTH = 0.25
+LASER_RANGE = 3.5
+
+# new reward params
+omega_target = 2.0
+TARGET_DIM = 2
+
+## ------------------------------
+
+# noise parameters
+mu = 0 
+theta = 2
+sigma = 0.2
+
+# learning rate
+actor_lr = 1e-4
+critic_lr = 1e-3
+batch_size = 256
+
+# update parameters
+gamma = 0.99
+tau = 0.001
+hmm_state = 10

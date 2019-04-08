@@ -27,15 +27,15 @@ import utils
 # 3 - differential driver
 TRAIN_TYPE = 2
 
-TIME_DELAY = 5
+TIME_DELAY = 2#5
 STATE_DIM = 2
 SENSOR_DIM = 360
 ACTION_DIM = 2
 TARGET_THRESHOLD = 0.01
-AGENT_NUMBER = 16
+AGENT_NUMBER = 8
 
 MAX_EPISODES = 100
-MAX_STEPS = 30
+MAX_STEPS = 120#30
 
 USE_SHAPED_REWARD = False
 USE_LASER_REWARD = True
@@ -111,7 +111,7 @@ for i_episode in range(MAX_EPISODES):
     for i in range(AGENT_NUMBER):
         all_controls.group_control[i].reset = False
     resp_ = pytorch_io_service(all_controls)
-    time.sleep(0.2)
+    time.sleep(0.05)
 
     terminate_flag = np.zeros(AGENT_NUMBER)
     survive_time = np.zeros(AGENT_NUMBER)
@@ -143,7 +143,7 @@ for i_episode in range(MAX_EPISODES):
                     reset_coldtime[i_agents] = 1
                     terminate_flag[i_agents] = 1
                     all_controls.group_control[i_agents].reset = True
-            time.sleep(0.1)
+            time.sleep(0.05)
         resp_ = pytorch_io_service(all_controls) # make sure reset operation has been done
 
         # check if one agent start a new loop

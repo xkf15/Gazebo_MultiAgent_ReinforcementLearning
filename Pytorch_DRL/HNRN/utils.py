@@ -1,6 +1,7 @@
 import numpy as np
 import yaml
 import copy
+import math
 
 def distance(x1, y1, x2, y2):
     return ((x1-x2)**2+(y1-y2)**2)**0.5
@@ -24,7 +25,21 @@ def print_target_positions(resp_, agent_number):
 def combine_states(all_current_states, all_next_states, all_controls, i_agents, survive_time):
     
     survive_reward = all_next_states.group_state[i_agents].reward + survive_time[i_agents]*4.0
+    
+    current_target = target_transform(all_current_states.group_state[i_agents])
+    next_target = target_transform(all_next_states.group_state[i_agents])
 
+    desired_x = math.cos(current_target[1])
+    desired_y = math.sin(current_target[1])
+
+    return [remapping_laser_data(all_current_states.group_state[i_agents].laserScan), current_target, 
+            [all_controls.group_control[i_agents].linear_x, all_controls.group_control[i_agents].angular_z],
+            survive_reward,
+            remapping_laser_data(all_next_states.group_state[i_agents].laserScan), next_target,
+            all_next_states.group_state[i_agents].terminal,
+            [desired_x, desired_y]]
+
+'''
     return [all_current_states.group_state[i_agents].desired_x, # 0
             all_current_states.group_state[i_agents].desired_y, # 1
             all_next_states.group_state[i_agents].desired_x,    # 2
@@ -40,6 +55,22 @@ def combine_states(all_current_states, all_next_states, all_controls, i_agents, 
             survive_reward,                                     # 12
             remapping_laser_data(all_current_states.group_state[i_agents].laserScan), 
             remapping_laser_data(all_next_states.group_state[i_agents].laserScan)]
+'''
+    
+# we use the reward reciprocal to the distance
+def add_all_rewards(current_state, next_state, omega_target, reward_one_step):
+    # we add a small param 0.1 to the distance, incase there will be zero on the denominator
+    distance_current = 0.1 + distance(current_state.current_x, current_state.current_y, current_state.target_x, current_state.target_y)
+    distance_next = 0.1 + distance(next_state.current_x, next_state.current_y, next_state.target_x, next_state.target_y)
+    distance_reward = 0
+    distance_reward = omega_target * (distance_current - distance_next)
+    laser_reward = 10.0 * ( min(remapping_laser_data(next_state.laserScan)) - min(remapping_laser_data(current_state.laserScan)))
+#    print laser_reward
+#    if distance_current > 3.0:
+#        distance_reward = omega_target/2 * (distance_current - distance_next)
+#    else:
+#        distance_reward = omega_target * (1/distance_next - 1/distance_current)
+    return next_state.reward + distance_reward + laser_reward# + reward_one_step
 
 def initialze_all_states_var(temp_state, all_current_states, all_next_states, agent_number):
     for i_agents in range(agent_number):
@@ -69,6 +100,7 @@ def vector_normalization(v1_x, v1_y, v2_x, v2_y):
     '''
 
 # generate buffer format in the last step
+'''
 def generate_experience(old_experience):
     new_experience = []
 
@@ -85,6 +117,8 @@ def generate_experience(old_experience):
     new_experience.append(old_experience[14])  # 8 - next laserscan
 
     return new_experience
+'''
+
 
 def remapping_laser_data(raw_data):
 
@@ -95,6 +129,16 @@ def remapping_laser_data(raw_data):
     remapping_data = remapping_data - 3.5
 
     return remapping_data
+
+def target_transform(state):
+    target_distance = distance(state.current_x, state.current_y, state.target_x, state.target_y)
+    target_yaw = math.atan2(state.target_y - state.current_y, state.target_x - state.current_x) - state.current_yaw
+    # constrain the yaw to -pi ~ +pi
+    if target_yaw > math.pi:
+        target_yaw -= 2 * math.pi
+    elif target_yaw < -math.pi:
+        target_yaw += 2 * math.pi
+    return [target_distance, target_yaw]
 
 def shaped_reward_experience(episode_experience):
     new_experience = copy.deepcopy(episode_experience)
@@ -115,12 +159,60 @@ def laser_shape_reward_experience(episode_experience):
 
     # uncover region
     laser_uncover_region = 360*0 - np.sum(new_experience[14])
-    new_experience[12] -= laser_uncover_region*0.1
+    #print(laser_uncover_region)
+    new_experience[12] -= laser_uncover_region*0.1 #0.1
+
     # min value
     #min_laser_value = np.min(new_experience[14])
     #new_experience[12] += (min_laser_value-3.5)*2
 
     return new_experience
+
+# generate laser data from the position
+def generate_laser_from_pos(group_state, LASER_RANGE, ROBOT_LENGTH):
+    new_group_state = copy.deepcopy(group_state)
+    agent_num = len(new_group_state)
+    for i in range(agent_num):
+        new_group_state[i].laserScan = [float("inf") for _ in range(360)]
+        for j in range(agent_num):
+            if j == i:
+                continue
+            # calculate distance
+            distance_ij = distance(new_group_state[i].current_x, new_group_state[i].current_y, new_group_state[j].current_x, new_group_state[j].current_y)
+            if distance_ij >= LASER_RANGE + ROBOT_LENGTH/2 :
+                continue
+            angle_ij = math.atan2(new_group_state[j].current_y - new_group_state[i].current_y, new_group_state[j].current_x - new_group_state[i].current_x) - new_group_state[i].current_yaw
+            # constrain the angle_ij to (0, 2 * pi)
+            if angle_ij < 0:
+                angle_ij += 2 * math.pi
+            # calculate the robot length in laser data (occupy how much range)
+            if ROBOT_LENGTH / 2 < distance_ij:
+                angle_occupy_half = math.asin(ROBOT_LENGTH / 2 / distance_ij)
+            else:
+                angle_occupy_half = math.asin(0.5)
+            upper_range = int(round((angle_ij + angle_occupy_half) * 180 / math.pi))
+            lower_range = int(round((angle_ij - angle_occupy_half) * 180 / math.pi))
+            # set laser
+            if upper_range >= 360:
+                for i_laser in range(lower_range, 360):
+                    if distance_ij < new_group_state[i].laserScan[i_laser]:
+                        new_group_state[i].laserScan[i_laser] = distance_ij - ROBOT_LENGTH/2
+                for i_laser in range(0, upper_range - 360 + 1):
+                    if distance_ij < group_state[i].laserScan[i_laser]:
+                        new_group_state[i].laserScan[i_laser] = distance_ij - ROBOT_LENGTH/2
+            elif lower_range < 0:
+                for i_laser in range(lower_range + 360, 360):
+                    if distance_ij < new_group_state[i].laserScan[i_laser]:
+                        new_group_state[i].laserScan[i_laser] = distance_ij - ROBOT_LENGTH/2
+                for i_laser in range(0, upper_range + 1):
+                    if distance_ij < new_group_state[i].laserScan[i_laser]:
+                        new_group_state[i].laserScan[i_laser] = distance_ij - ROBOT_LENGTH/2
+            else:
+                for i_laser in range(lower_range, upper_range + 1):
+                    if distance_ij < new_group_state[i].laserScan[i_laser]:
+                        new_group_state[i].laserScan[i_laser] = distance_ij - ROBOT_LENGTH/2
+        new_group_state[i].laserScan = tuple(new_group_state[i].laserScan)
+    return new_group_state
 
 def comebine_sequence_data(all_next_states, i_agents):
     
