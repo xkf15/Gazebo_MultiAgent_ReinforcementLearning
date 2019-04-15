@@ -64,7 +64,7 @@ def add_all_rewards(current_state, next_state, omega_target, reward_one_step):
     distance_next = 0.1 + distance(next_state.current_x, next_state.current_y, next_state.target_x, next_state.target_y)
     distance_reward = 0
     distance_reward = omega_target * (distance_current - distance_next)
-    laser_reward = 10.0 * ( min(remapping_laser_data(next_state.laserScan)) - min(remapping_laser_data(current_state.laserScan)))
+    laser_reward = 5.0 * ( min(remapping_laser_data(next_state.laserScan)) - min(remapping_laser_data(current_state.laserScan)))
 #    print laser_reward
 #    if distance_current > 3.0:
 #        distance_reward = omega_target/2 * (distance_current - distance_next)
@@ -244,6 +244,18 @@ def generate_hmm_sequence(episode_experience):
 
     return X, lengths, rewards
 
+
+def from_model_to_8bits(action):
+    # velocity
+    vel = int(round(abs(action[0] * 7)))
+    if vel is not 0:
+        vel += int(action[0] < 0) << 3
+    # angular
+    angle = int(round(abs(action[1] * 7)))
+    if angle is not 0:
+        angle += int(action[1] < 0) << 3
+    control_8bits = (angle << 4) + vel
+    return control_8bits
 
 '''
 def update_goal_and_reward(episode_experience, new_goal, new_reward):

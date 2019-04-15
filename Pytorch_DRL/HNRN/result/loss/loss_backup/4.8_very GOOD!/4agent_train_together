@@ -1,0 +1,131 @@
+## ------------------------------
+
+# 1 - train target driven actor, I think it is useless now.
+# 2 - train collision avoidance actor
+# 3 - differential driver
+TRAIN_TYPE = 2
+
+MAX_OPTIMIZATION_STEP = 10#30
+TIME_DELAY = 2#5
+STATE_DIM = 2
+SENSOR_DIM = 360
+ACTION_DIM = 2
+MAX_EPISODES = 5000
+MAX_STEPS = 360 #30
+MAX_BUFFER = 500000 #50000
+HER_K = 8
+TARGET_THRESHOLD = 0.01
+TEST_ROUND = 10 #20
+# TEST_EPISODE = 20 if TRAIN_TYPE == 1 else 40
+TEST_EPISODE = 20
+AGENT_NUMBER = 4
+OBSERVATION_RANGE = 2
+MIN_EXPERIMENCE_NUMBER = 30#3
+
+USE_HER = False
+USE_DIR = False
+USE_TEST = True
+USE_SHAPED_REWARD = False
+USE_LASER_REWARD = False#True
+USE_SURVIVE_REWARD = False
+
+CONTINUE_TRAIN = True
+
+# use absolute coordinate to generate
+GENERATE_LASER_FORM_POS = True
+ROBOT_LENGTH = 0.25
+LASER_RANGE = 3.5
+
+# new reward params
+omega_target = 10.0
+TARGET_DIM = 2
+reward_one_step = -0.1 # get penalty each step
+
+## ------------------------------
+
+# noise parameters
+mu = 0 
+theta = 2
+sigma = 1.0#0.2 sigma will decay
+
+# learning rate
+actor_lr = 1e-5 # 1e-4
+critic_lr = 1e-4 # 1e-3
+batch_size = 256
+
+# update parameters
+gamma = 0.99
+tau = 0.001
+hmm_state = 10
+
+
+class Actor_Collision_Avoidance(nn.Module):
+    def __init__(self, sensor_dim, target_dim, action_dim):
+        super(Actor_Collision_Avoidance, self).__init__()
+        self.sensor_model = nn.Sequential(
+            nn.Linear(sensor_dim, 128),
+            nn.ReLU(),
+            nn.Linear(128, 64),
+            nn.ReLU())
+        for i in [0, 2]:
+            nn.init.xavier_uniform(self.sensor_model[i].weight.data)
+        
+        self.target_model = nn.Sequential(
+            nn.Linear(64 + target_dim, 16),
+            nn.ReLU(),
+            nn.Linear(16, action_dim),
+            nn.Tanh())
+        for i in [0, 2]:
+            nn.init.xavier_uniform(self.target_model[i].weight.data)
+    
+    # sensor 360 dim, target polar coordinate
+    def forward(self, sensor, target):
+        sensor_output = self.sensor_model(sensor)
+        combine_state = torch.cat([sensor_output, target], 1)
+        action_output = self.target_model(combine_state)
+
+        return action_output
+
+class Critic_Collision_Avoidance(nn.Module):
+    def __init__(self, sensor_dim, target_dim, action_dim):
+        super(Critic_Collision_Avoidance, self).__init__()
+        self.sensor_model = nn.Sequential(
+            nn.Linear(sensor_dim, 128),
+            nn.ReLU(),
+            nn.Linear(128, 64),
+            nn.ReLU())
+        for i in [0, 2]:
+            nn.init.xavier_uniform(self.sensor_model[i].weight.data)
+        
+        self.target_model = nn.Sequential(
+            nn.Linear(64 + target_dim, 16),
+            nn.ReLU())
+        for i in [0]:
+            nn.init.xavier_uniform(self.target_model[i].weight.data)
+        
+        self.state_model = nn.Sequential(
+            nn.Linear(16 + action_dim, 16),
+            nn.ReLU(),
+            nn.Linear(16, 1))
+        for i in [0, 2]:
+            nn.init.xavier_uniform(self.state_model[i].weight.data)
+
+    def forward(self, sensor, target, action):
+        sensor_output = self.sensor_model(sensor)
+        combine_state = torch.cat([sensor_output, target], 1)
+        state_output = self.target_model(combine_state)
+        combine_action = torch.cat([state_output, action], 1)
+        score_output = self.state_model(combine_action)
+
+        return score_output
+
+
+
+def add_all_rewards(current_state, next_state, omega_target, reward_one_step):
+    # we add a small param 0.1 to the distance, incase there will be zero on the denominator
+    distance_current = 0.1 + distance(current_state.current_x, current_state.current_y, current_state.target_x, current_state.target_y)
+    distance_next = 0.1 + distance(next_state.current_x, next_state.current_y, next_state.target_x, next_state.target_y)
+    distance_reward = 0
+    distance_reward = omega_target * (distance_current - distance_next)
+    laser_reward = 10.0 * ( min(remapping_laser_data(next_state.laserScan)) - min(remapping_laser_data(current_state.laserScan)))
+    return next_state.reward + distance_reward + laser_reward

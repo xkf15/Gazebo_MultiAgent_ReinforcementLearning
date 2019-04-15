@@ -225,7 +225,7 @@ class HNRN(nn.Module):
         # change bool to tensor
         terminal =  Variable(torch.FloatTensor([1.0 * (i==False) for i in terminal]))
 
-#        self.critic_ca_optimizer.zero_grad()
+        self.critic_ca_optimizer.zero_grad()
 
         # The below 2 operations need to be detached since we only update eval and not targets
         a_n = self.actor_ca_target(sensor=n_laser, target=n_target).detach()
@@ -238,17 +238,17 @@ class HNRN(nn.Module):
         # critic_loss = F.smooth_l1_loss(y_predicted, y_target)
         critic_loss = L2_loss_func(y_predicted, y_target)
 
-#        critic_loss.backward()
-#        self.critic_ca_optimizer.step()
+        critic_loss.backward()
+        self.critic_ca_optimizer.step()
 
         # train actor
-        self.actor_ca_optimizer.zero_grad()
+#        self.actor_ca_optimizer.zero_grad()
         a_pred = self.actor_ca(sensor=c_laser, target=c_target)
 
         actor_loss = L2_loss_func(a_pred, desired_v)
 
-        actor_loss.backward()
-        self.actor_ca_optimizer.step()
+#        actor_loss.backward()
+#        self.actor_ca_optimizer.step()
 
         # update parameters
         self.update_targets()

@@ -1,0 +1,116 @@
+import rospy
+import pickle
+import copy
+
+from gazebo_drl_env.srv import SimpleCtrl
+from gazebo_drl_env.msg import control_group_msgs
+from gazebo_drl_env.msg import state_group_msgs
+from gazebo_drl_env.msg import control_msgs
+from gazebo_drl_env.msg import state_msgs
+
+from cv_bridge import CvBridge
+
+# remove the ros packages path, or cv2 can not work
+#sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages') 
+import cv2
+
+from HNRN import HNRN
+import utils
+
+## ------------------------------
+
+# 1 - train target driven actor, I think it is useless now.
+# 2 - train collision avoidance actor
+# 3 - differential driver
+TRAIN_TYPE = 2
+
+MAX_OPTIMIZATION_STEP = 50#30
+TIME_DELAY = 1#5
+STATE_DIM = 2
+SENSOR_DIM = 360
+ACTION_DIM = 2
+MAX_EPISODES = 5000
+MAX_STEPS = 360 #30
+MAX_BUFFER = 500000 #50000
+HER_K = 8
+TARGET_THRESHOLD = 0.01
+TEST_ROUND = 10 #20
+# TEST_EPISODE = 20 if TRAIN_TYPE == 1 else 40
+TEST_EPISODE = 20
+AGENT_NUMBER = 1
+OBSERVATION_RANGE = 2
+MIN_EXPERIMENCE_NUMBER = 30#3
+
+USE_HER = False
+USE_DIR = False
+USE_TEST = True
+USE_SHAPED_REWARD = False
+USE_LASER_REWARD = False #True
+USE_SURVIVE_REWARD = False
+
+CONTINUE_TRAIN = False
+
+# use absolute coordinate to generate
+GENERATE_LASER_FORM_POS = True
+ROBOT_LENGTH = 0.25
+LASER_RANGE = 3.5
+
+# new reward params
+omega_target = 10.0
+TARGET_DIM = 2
+reward_one_step = -0.1 # get penalty each step
+
+## ------------------------------
+
+# noise parameters
+mu = 0 
+theta = 2
+sigma = 0.8#1.0#0.2
+
+# learning rate
+actor_lr = 1e-4 # 1e-4
+critic_lr = 1e-4 # 1e-3
+batch_size = 256
+
+# update parameters
+gamma = 0.99
+tau = 0.001
+hmm_state = 10
+
+## ------------------------------
+
+# define model
+model = HNRN(max_buffer=MAX_BUFFER, state_dim=STATE_DIM, sensor_dim=SENSOR_DIM, target_dim=TARGET_DIM, action_dim=ACTION_DIM, 
+             mu=mu, theta=theta, sigma=sigma, gamma=gamma, tau=tau, train_type=TRAIN_TYPE,
+             actor_lr=actor_lr, critic_lr=critic_lr, batch_size=batch_size, hmm_state=hmm_state)
+
+# define ROS service client and messages
+rospy.wait_for_service('/gazebo_env_io/pytorch_io_service')
+pytorch_io_service = rospy.ServiceProxy('/gazebo_env_io/pytorch_io_service', SimpleCtrl)
+TERMINAL_REWARD, COLLISION_REWARD, SURVIVE_REWARD = utils.get_parameters('../../gazebo_drl_env/param/env.yaml')
+
+# load parameters and experiences
+if CONTINUE_TRAIN is True:
+    model.load_models()
+    model.copy_weights()
+    #model.load_buffer()
+
+losses = []
+model.noise.reset()
+succeed_time = 0
+crash_time = 0
+max_test_success_time = 0
+max_total_reward = -99999
+
+# time profiling
+experience_time = 0
+train_time = 0
+
+
+
+
+
+    time.sleep(0.0005)
+
+
+

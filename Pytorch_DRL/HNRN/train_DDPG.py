@@ -30,13 +30,13 @@ import utils
 TRAIN_TYPE = 2
 
 MAX_OPTIMIZATION_STEP = 10#30
-TIME_DELAY = 2#5
+TIME_DELAY = 1#5
 STATE_DIM = 2
 SENSOR_DIM = 360
 ACTION_DIM = 2
 MAX_EPISODES = 5000
 MAX_STEPS = 360 #30
-MAX_BUFFER = 500000 #50000
+MAX_BUFFER = 5000000 #50000
 HER_K = 8
 TARGET_THRESHOLD = 0.01
 TEST_ROUND = 10 #20
@@ -50,10 +50,10 @@ USE_HER = False
 USE_DIR = False
 USE_TEST = True
 USE_SHAPED_REWARD = False
-USE_LASER_REWARD = False#True
+USE_LASER_REWARD = False #True
 USE_SURVIVE_REWARD = False
 
-CONTINUE_TRAIN = True
+CONTINUE_TRAIN = False
 
 # use absolute coordinate to generate
 GENERATE_LASER_FORM_POS = True
@@ -70,7 +70,7 @@ reward_one_step = -0.1 # get penalty each step
 # noise parameters
 mu = 0 
 theta = 2
-sigma = 1.0#0.2
+sigma = 0.8#1.0#0.2
 
 # learning rate
 actor_lr = 1e-5 # 1e-4
@@ -107,6 +107,9 @@ crash_time = 0
 max_test_success_time = 0
 max_total_reward = -99999
 
+# time profiling
+experience_time = 0
+train_time = 0
 
 print('[*] State  Dimensions : {}'.format(STATE_DIM))
 print('[*] Sensor Dimensions : {}'.format(SENSOR_DIM))
@@ -115,6 +118,9 @@ print('[*] Agent  Number : {}'.format(AGENT_NUMBER))
 print('\n==================================== Start training ====================================')
 
 for i_episode in range(MAX_EPISODES):
+
+    # profiling, test time
+    experience_time_start = time.time()
 
     crash_time_episode = 0
     succeed_time_episode = 0
@@ -145,7 +151,7 @@ for i_episode in range(MAX_EPISODES):
     resp_ = pytorch_io_service(all_controls)
     if GENERATE_LASER_FORM_POS is True:
         resp_.all_group_states.group_state = utils.generate_laser_from_pos(resp_.all_group_states.group_state, LASER_RANGE, ROBOT_LENGTH)
-    time.sleep(0.05)
+    time.sleep(0.001)
     
 
     episode_experience = defaultdict(list)
@@ -208,7 +214,7 @@ for i_episode in range(MAX_EPISODES):
                         crash_time += 1
                         crash_time_episode += 1
                         all_controls.group_control[i_agents].reset = True
-            time.sleep(0.05)
+            time.sleep(0.001)
         resp_ = pytorch_io_service(all_controls) # make sure reset operation has been done
         if GENERATE_LASER_FORM_POS is True:
             resp_.all_group_states.group_state = utils.generate_laser_from_pos(resp_.all_group_states.group_state, LASER_RANGE, ROBOT_LENGTH)
@@ -290,6 +296,8 @@ for i_episode in range(MAX_EPISODES):
                     model.buffer.add(new_experience)
             '''
 
+    # test time
+    experience_time_end = time.time()
 
     ########################
     ##### For training #####
@@ -305,11 +313,18 @@ for i_episode in range(MAX_EPISODES):
         dbfile.close()
         #model.save_buffer()
 
+    # test time
+    train_time_end = time.time()
+    experience_time += experience_time_end - experience_time_start
+    train_time += train_time_end - experience_time_end
 
     #######################
     ##### For testing #####
     #######################
     if (i_episode+1) % TEST_EPISODE is 0 and USE_TEST is True:
+        print('Experience Time: %6f | Train Time: %6f' % (experience_time, train_time))
+        experience_time = 0
+        train_time = 0
         terminal_flag = [False for i in range(AGENT_NUMBER)]
         test_success_time = 0
         test_crash_time = 0
@@ -330,7 +345,7 @@ for i_episode in range(MAX_EPISODES):
             # after reseting, publish a new action for all agents
             for i in range(AGENT_NUMBER):
                 all_controls.group_control[i].reset = False
-            time.sleep(0.05)
+            time.sleep(0.001)
             resp_ = pytorch_io_service(all_controls)
             if GENERATE_LASER_FORM_POS is True:
                 resp_.all_group_states.group_state = utils.generate_laser_from_pos(resp_.all_group_states.group_state, LASER_RANGE, ROBOT_LENGTH)
@@ -370,7 +385,7 @@ for i_episode in range(MAX_EPISODES):
                             elif resp_.all_group_states.group_state[i_agents].reward == COLLISION_REWARD:
                                 test_crash_time += 1
                                 all_controls.group_control[i_agents].reset = True
-                    time.sleep(0.05)
+                    time.sleep(0.001)
                 resp_ = pytorch_io_service(all_controls) # make sure reset operation has been done
                 if GENERATE_LASER_FORM_POS is True:
                     resp_.all_group_states.group_state = utils.generate_laser_from_pos(resp_.all_group_states.group_state, LASER_RANGE, ROBOT_LENGTH)
@@ -386,10 +401,11 @@ for i_episode in range(MAX_EPISODES):
                 pbar.update(1)
 
         pbar.close()
+        success_rate = test_success_time # * 1.0 / (test_success_time + test_crash_time)
         outfile = open("test_rate.txt", 'a')
-        outfile.write(str(test_success_time))
-        if test_success_time >= max_test_success_time:
-            max_test_success_time = test_success_time
+        outfile.write(str(success_rate))
+        if success_rate >= max_test_success_time:
+            max_test_success_time = success_rate
             model.save_models()
 #        if TRAIN_TYPE is not 2:
 #            outfile.write(str(test_success_rate))

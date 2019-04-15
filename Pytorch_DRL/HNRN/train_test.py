@@ -63,6 +63,8 @@ print('\n============================== Start training =========================
 
 for i_episode in range(MAX_EPISODES):
 
+    
+
     all_controls = control_group_msgs()
     all_current_states = state_group_msgs()
     all_next_states = state_group_msgs()
@@ -88,7 +90,7 @@ for i_episode in range(MAX_EPISODES):
     resp_ = pytorch_io_service(all_controls)
     if GENERATE_LASER_FORM_POS is True:
         resp_.all_group_states.group_state = utils.generate_laser_from_pos(resp_.all_group_states.group_state, LASER_RANGE, ROBOT_LENGTH)
-    time.sleep(0.05)
+    time.sleep(0.001)
 
     episode_experience = defaultdict(list)
     terminate_flag = np.zeros(AGENT_NUMBER)
@@ -125,7 +127,7 @@ for i_episode in range(MAX_EPISODES):
 				            terminate_flag[i_agents] = 1
 				            all_controls.group_control[i_agents].reset = True
 
-            time.sleep(0.05)
+            time.sleep(0.001)
         resp_ = pytorch_io_service(all_controls) # make sure reset operation has been done
         if GENERATE_LASER_FORM_POS is True:
             resp_.all_group_states.group_state = utils.generate_laser_from_pos(resp_.all_group_states.group_state, LASER_RANGE, ROBOT_LENGTH)

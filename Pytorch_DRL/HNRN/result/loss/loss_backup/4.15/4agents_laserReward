@@ -1,0 +1,72 @@
+# 1 - train target driven actor, I think it is useless now.
+# 2 - train collision avoidance actor
+# 3 - differential driver
+TRAIN_TYPE = 2
+
+MAX_OPTIMIZATION_STEP = 10#30
+TIME_DELAY = 1#5
+STATE_DIM = 2
+SENSOR_DIM = 360
+ACTION_DIM = 2
+MAX_EPISODES = 5000
+MAX_STEPS = 360 #30
+MAX_BUFFER = 500000 #50000
+HER_K = 8
+TARGET_THRESHOLD = 0.01
+TEST_ROUND = 10 #20
+# TEST_EPISODE = 20 if TRAIN_TYPE == 1 else 40
+TEST_EPISODE = 20
+AGENT_NUMBER = 4
+OBSERVATION_RANGE = 2
+MIN_EXPERIMENCE_NUMBER = 30#3
+
+USE_HER = False
+USE_DIR = False
+USE_TEST = True
+USE_SHAPED_REWARD = False
+USE_LASER_REWARD = False #True
+USE_SURVIVE_REWARD = False
+
+CONTINUE_TRAIN = False
+
+# use absolute coordinate to generate
+GENERATE_LASER_FORM_POS = True
+ROBOT_LENGTH = 0.25
+LASER_RANGE = 3.5
+
+# new reward params
+omega_target = 10.0
+TARGET_DIM = 2
+reward_one_step = -0.1 # get penalty each step
+
+## ------------------------------
+
+# noise parameters
+mu = 0 
+theta = 2
+sigma = 0.8#1.0#0.2
+
+# learning rate
+actor_lr = 1e-5 # 1e-4
+critic_lr = 1e-4 # 1e-3
+batch_size = 256
+
+# update parameters
+gamma = 0.99
+tau = 0.001
+hmm_state = 10
+
+
+
+
+def add_all_rewards(current_state, next_state, omega_target, reward_one_step):
+    # we add a small param 0.1 to the distance, incase there will be zero on the denominator
+    distance_current = 0.1 + distance(current_state.current_x, current_state.current_y, current_state.target_x, current_state.target_y)
+    distance_next = 0.1 + distance(next_state.current_x, next_state.current_y, next_state.target_x, next_state.target_y)
+    distance_reward = 0
+    distance_reward = omega_target * (distance_current - distance_next)
+    laser_reward = 10.0 * ( min(remapping_laser_data(next_state.laserScan)) - min(remapping_laser_data(current_state.laserScan)))
+    return next_state.reward + distance_reward + laser_reward# + reward_one_step
+
+
+
