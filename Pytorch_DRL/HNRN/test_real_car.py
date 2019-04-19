@@ -57,7 +57,7 @@ model = DDPG(max_buffer=0, state_dim=STATE_DIM, sensor_dim=SENSOR_DIM, target_di
              actor_lr=actor_lr, critic_lr=critic_lr, batch_size=batch_size, hmm_state=hmm_state)
 
 # load parameters of pre-trained model
-model.load_models()
+model.load_models('models/best_ca_actor.model', 'models/best_ca_critic.model')
 model.copy_weights()
 
 # random target within the boundary of environment

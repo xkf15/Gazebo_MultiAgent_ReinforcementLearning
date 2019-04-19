@@ -47,5 +47,9 @@ print('\nTrajectory Distance: Mean {} | Var {}'.format(np.mean(trajectory_distan
 print('Velocity X: Mean {} | Var {}'.format(np.mean(velocity_x), np.var(velocity_x)))
 print('Velocity Z: Mean {} | Var {}'.format(np.mean(velocity_z), np.var(velocity_z)))
 
+velocity_hist = []
+for v in velocity_x:
+   int
+
 
     

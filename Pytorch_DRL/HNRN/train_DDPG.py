@@ -96,7 +96,7 @@ TERMINAL_REWARD, COLLISION_REWARD, SURVIVE_REWARD = utils.get_parameters('../../
 
 # load parameters and experiences
 if CONTINUE_TRAIN is True:
-    model.load_models()
+    model.load_models('models/best_ca_actor.model', 'models/best_ca_critic.model')
     model.copy_weights()
     #model.load_buffer()
 
@@ -406,7 +406,7 @@ for i_episode in range(MAX_EPISODES):
         outfile.write(str(success_rate))
         if success_rate >= max_test_success_time:
             max_test_success_time = success_rate
-            model.save_models()
+            model.save_models('models/best_ca_actor.model', 'models/best_ca_critic.model')
 #        if TRAIN_TYPE is not 2:
 #            outfile.write(str(test_success_rate))
 #            if test_success_rate >= max_test_success_time:

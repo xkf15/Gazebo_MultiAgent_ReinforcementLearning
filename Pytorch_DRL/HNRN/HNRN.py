@@ -266,21 +266,25 @@ class HNRN(nn.Module):
     def save_hmm_data(self, X):
         self.evaluation_net.save_training_data_and_states(X)
 
-    def save_models(self):
-        if self.train_type == 1:
-            torch.save(self.actor_td.state_dict(), 'models/best_td_actor.model')
-            torch.save(self.critic_td.state_dict(), 'models/best_td_critic.model')
-        elif self.train_type == 2:
-            torch.save(self.actor_ca.state_dict(), 'models/best_ca_actor.model')
-            torch.save(self.critic_ca.state_dict(), 'models/best_ca_critic.model')
+    def save_models(self, actor_addr, critic_addr):
+#        if self.train_type == 1:
+#            torch.save(self.actor_td.state_dict(), 'models/best_td_actor.model')
+#            torch.save(self.critic_td.state_dict(), 'models/best_td_critic.model')
+#        elif self.train_type == 2:
+#            torch.save(self.actor_ca.state_dict(), 'models/best_ca_actor.model')
+#            torch.save(self.critic_ca.state_dict(), 'models/best_ca_critic.model')
+        torch.save(self.actor_ca.state_dict(), actor_addr)
+        torch.save(self.critic_ca.state_dict(), critic_addr)
 
-    def load_models(self):
-        if self.train_type == 1:
-            self.actor_td.load_state_dict(torch.load('models/best_td_actor.model'))
-            self.critic_td.load_state_dict(torch.load('models/best_td_critic.model'))
-        elif self.train_type == 2:
-            self.actor_ca.load_state_dict(torch.load('models/best_ca_actor.model'))
-            self.critic_ca.load_state_dict(torch.load('models/best_ca_critic.model'))
+    def load_models(self, actor_addr, critic_addr):
+#        if self.train_type == 1:
+#            self.actor_td.load_state_dict(torch.load('models/best_td_actor.model'))
+#            self.critic_td.load_state_dict(torch.load('models/best_td_critic.model'))
+#        elif self.train_type == 2:
+#            self.actor_ca.load_state_dict(torch.load('models/best_ca_actor.model'))
+#            self.critic_ca.load_state_dict(torch.load('models/best_ca_critic.model'))
+        self.actor_ca.load_state_dict(torch.load(actor_addr))
+        self.critic_ca.load_state_dict(torch.load(critic_addr))
 
     def save_buffer(self):
         self.buffer.save_buffer()

@@ -33,7 +33,7 @@ STATE_DIM = 2
 SENSOR_DIM = 360
 ACTION_DIM = 2
 TARGET_THRESHOLD = 0.01
-AGENT_NUMBER = 1
+AGENT_NUMBER = 4
 
 MAX_EPISODES = 100
 MAX_STEPS = 999999#30
@@ -78,7 +78,7 @@ pytorch_io_service = rospy.ServiceProxy('/gazebo_env_io/pytorch_io_service', Sim
 TERMINAL_REWARD, COLLISION_REWARD, SURVIVE_REWARD = utils.get_parameters('../../gazebo_drl_env/param/env.yaml')
 
 # load parameters of pre-trained model
-model.load_models()
+model.load_models('models/best_ca_actor.model', 'models/best_ca_critic.model')
 model.copy_weights()
 model.noise.reset()
 
