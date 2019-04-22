@@ -18,14 +18,13 @@ import modules
 
 # Hierarchical Navigation Reinforcement Network
 class DDPG(nn.Module):
-    def __init__(self, train_type, max_buffer, state_dim, sensor_dim, target_dim, action_dim, mu, theta, sigma, actor_lr, critic_lr, batch_size, gamma, tau, hmm_state):
+    def __init__(self, train_type, max_buffer, state_dim, sensor_dim, target_dim, action_dim, mu, theta, sigma, actor_lr, critic_lr, batch_size, gamma, tau):
         super(DDPG, self).__init__()
 
         self.train_type = train_type
         self.state_dim = state_dim
         self.sensor_dim = sensor_dim
         self.target_dim = target_dim
-        self.hmm_state = hmm_state
 
         self.tau = tau
         self.batch_size = batch_size
@@ -52,12 +51,6 @@ class DDPG(nn.Module):
 
         self.buffer = modules.ReplayBuffer(max_buffer)
         self.noise = modules.OrnsteinUhlenbeckNoise(action_dim, mu, theta, sigma)
-
-        # evaluation net
-#        self.evaluation_net = modules.Evaluation_Net(n_state=hmm_state)
-
-        # differential driver
-#        self.differential_driver = modules.Differential_Driver()
 
     def update_targets(self):
         if self.train_type == 1:
@@ -109,6 +102,7 @@ class DDPG(nn.Module):
         return action[0][0], action[0][1]
         #return math.cos(target_polar[1]), math.sin(target_polar[1])
 
+# navigation function is useless now
     def navigation(self, current_state):
         # generate sensor data
         array_laser = utils.remapping_laser_data(current_state.laserScan)
@@ -122,10 +116,6 @@ class DDPG(nn.Module):
         target_driven_action = self.differential_driver.run(x=current_state.desired_x, y=current_state.desired_y)
         collision_avoidance_action = self.actor_ca(sensor=sensor, target=target).cpu().data.numpy()
         predict_state = self.evaluation_net.predict_state(array_laser.reshape(1, -1))
-
-        # genrate action based on hmm_state
-        # the less the state is, the dangerous the situation is
-        # final_action = target_driven_action[0] + (self.hmm_state-predict_state)/float(self.hmm_state)*collision_avoidance_action[0]
 
         # Collision avoidance ratio
         ratio = min(float(torch.kthvalue(sensor,1)[0]) / (-3.5), 1)
@@ -247,35 +237,11 @@ class DDPG(nn.Module):
         self.update_targets()
         return critic_loss, actor_loss
 
-    def learn_hmm(self, X, lengths, rewards):
-        self.evaluation_net.train_HMM(X, lengths, rewards)
-
-    def save_hmm(self):
-        self.evaluation_net.save_parameters()
-
-    def load_hmm(self):
-        self.evaluation_net.load_parameters()
-
-    def save_hmm_data(self, X):
-        self.evaluation_net.save_training_data_and_states(X)
-
     def save_models(self, actor_addr, critic_addr):
-#        if self.train_type == 1:
-#            torch.save(self.actor_td.state_dict(), 'models/best_td_actor.model')
-#            torch.save(self.critic_td.state_dict(), 'models/best_td_critic.model')
-#        elif self.train_type == 2:
-#            torch.save(self.actor_ca.state_dict(), 'models/best_ca_actor.model')
-#            torch.save(self.critic_ca.state_dict(), 'models/best_ca_critic.model')
         torch.save(self.actor_ca.state_dict(), actor_addr)
         torch.save(self.critic_ca.state_dict(), critic_addr)
 
     def load_models(self, actor_addr, critic_addr):
-#        if self.train_type == 1:
-#            self.actor_td.load_state_dict(torch.load('models/best_td_actor.model'))
-#            self.critic_td.load_state_dict(torch.load('models/best_td_critic.model'))
-#        elif self.train_type == 2:
-#            self.actor_ca.load_state_dict(torch.load('models/best_ca_actor.model'))
-#            self.critic_ca.load_state_dict(torch.load('models/best_ca_critic.model'))
         self.actor_ca.load_state_dict(torch.load(actor_addr))
         self.critic_ca.load_state_dict(torch.load(critic_addr))
 

@@ -63,14 +63,13 @@ batch_size = 256
 # update parameters
 gamma = 0.99
 tau = 0.001
-hmm_state = 10
 
 ## ------------------------------
 
 # define model
 model = DDPG(max_buffer=0, state_dim=STATE_DIM, sensor_dim=SENSOR_DIM, target_dim=TARGET_DIM, action_dim=ACTION_DIM, 
              mu=mu, theta=theta, sigma=sigma, gamma=gamma, tau=tau, train_type=TRAIN_TYPE,
-             actor_lr=actor_lr, critic_lr=critic_lr, batch_size=batch_size, hmm_state=hmm_state)
+             actor_lr=actor_lr, critic_lr=critic_lr, batch_size=batch_size)
 
 # define ROS service client and messages
 rospy.wait_for_service('/gazebo_env_io/pytorch_io_service')

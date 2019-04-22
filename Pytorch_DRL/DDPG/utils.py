@@ -222,29 +222,6 @@ def comebine_sequence_data(all_next_states, i_agents):
 
     return laser_data, reward
 
-def generate_hmm_sequence(episode_experience):
-    X = []
-    lengths = []
-    rewards = []
-    print('[*] Start generating hmm sequences...')
-    for i_keys in episode_experience.keys():
-        
-        current_lens = len(episode_experience[i_keys])
-        if current_lens <= 3:
-            continue
-        lengths.append(current_lens)
-        sequence_reward = []
-       
-        for i_len in range(current_lens):
-            
-            X_sequence = np.reshape(episode_experience[i_keys][i_len][0], [1, 360])
-            X = X_sequence if X == [] else np.concatenate([X, X_sequence])
-            sequence_reward.append(episode_experience[i_keys][i_len][1])
-        rewards.append(sequence_reward)
-
-    return X, lengths, rewards
-
-
 def from_model_to_8bits(action):
     # velocity
     vel = int(round(abs(action[0] * 7)))
@@ -257,56 +234,4 @@ def from_model_to_8bits(action):
     control_8bits = (angle << 4) + vel
     return control_8bits
 
-'''
-def update_goal_and_reward(episode_experience, new_goal, new_reward):
-    new_experience = copy.deepcopy(episode_experience)
 
-    new_experience[12] = new_reward
-    # set target equal to next state
-    new_experience[8] = new_goal[6]
-    new_experience[9] = new_goal[7]
-
-    return new_experience
-
-def update_action_and_reward(episode_experience):
-    new_experience = copy.deepcopy(episode_experience)
-
-    new_experience[12] = 0.5
-
-    # give a new commond
-    new_experience[10] = -episode_experience[10]
-    new_experience[11] = -episode_experience[11]
-
-    # reverse current state and next state
-    new_experience[4] = episode_experience[6]
-    new_experience[5] = episode_experience[7]
-    new_experience[13] = episode_experience[14]
-
-    new_experience[6] = episode_experience[4]
-    new_experience[7] = episode_experience[5]
-    new_experience[14] = episode_experience[13]
-
-    return new_experience
-
-def sample_new_targets(episode_experience, HER_K):
-    
-    if len(episode_experience) > HER_K:
-        future_position = np.random.choice(np.arange(0,len(episode_experience),1), HER_K, replace=False) 
-    else:
-        future_position = np.arange(len(episode_experience))
-
-    new_goals = []
-    for i_k in future_position:
-        new_goals.append([episode_experience[i_k][6], episode_experience[i_k][7]])
-
-    return new_goals
-
-def increase_positive_target(episode_experience, HER_K, i_step):
-    future_position = np.random.choice(np.arange(i_step,len(episode_experience),1), HER_K, replace=True) 
-
-    new_goals = []
-    for i_k in future_position:
-        new_goals.append([episode_experience[i_k][6], episode_experience[i_k][7]])
-    return new_goals
-
-'''

@@ -8,7 +8,6 @@ import numpy as np
 from collections import deque
 import random
 import pickle
-from hmmlearn.hmm import GaussianHMM
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -146,8 +145,6 @@ class Actor_Collision_Avoidance(nn.Module):
     def __init__(self, sensor_dim, target_dim, action_dim):
         super(Actor_Collision_Avoidance, self).__init__()
         self.sensor_model = nn.Sequential(
-#            nn.Linear(sensor_dim, 256),
-#            nn.ReLU(),
             nn.Linear(sensor_dim, 128),
             nn.ReLU(),
             nn.Linear(128, 64),
@@ -156,8 +153,6 @@ class Actor_Collision_Avoidance(nn.Module):
             nn.init.xavier_uniform(self.sensor_model[i].weight.data)
         
         self.target_model = nn.Sequential(
-#            nn.Linear(64 + target_dim, 64),
-#            nn.ReLU(),
             nn.Linear(64 + target_dim, 16),
             nn.ReLU(),
             nn.Linear(16, action_dim),
@@ -210,8 +205,6 @@ class Critic_Collision_Avoidance(nn.Module):
     def __init__(self, sensor_dim, target_dim, action_dim):
         super(Critic_Collision_Avoidance, self).__init__()
         self.sensor_model = nn.Sequential(
-#            nn.Linear(sensor_dim, 256),
-#            nn.ReLU(),
             nn.Linear(sensor_dim, 128),
             nn.ReLU(),
             nn.Linear(128, 64),
@@ -220,8 +213,6 @@ class Critic_Collision_Avoidance(nn.Module):
             nn.init.xavier_uniform(self.sensor_model[i].weight.data)
         
         self.target_model = nn.Sequential(
-#            nn.Linear(64 + target_dim, 64),
-#            nn.ReLU(),
             nn.Linear(64 + target_dim, 16),
             nn.ReLU())
         for i in [0]:
@@ -243,82 +234,4 @@ class Critic_Collision_Avoidance(nn.Module):
 
         return score_output
 
-class Evaluation_Net():
-    def __init__(self, n_state):
-        print('[*] Building Evaluation Net...')
-        self.n_state = n_state
-        self.hmm = GaussianHMM(n_components=n_state, covariance_type="diag", n_iter=1000, tol=0.01)
-        self.rewards = []
-        self.map_index = []
-        self.hidden_states = []
 
-    def train_HMM(self, X, lengths, rewards):
-        print('[*] Start training HMM...')
-        self.rewards = rewards
-        self.hmm = self.hmm.fit(X, lengths)
-
-        # sort the state using reward
-        self.sort_state_by_reward(X, lengths, rewards)
-
-    def predict_state(self, X):
-        raw_state = self.hmm.predict(X)
-        return np.array([self.map_index.tolist().index(raw_state)])
-
-    def print_monitor(self):
-        print(self.hmm.monitor_)
-    
-    # output states' number of HMM is random, so a sort operatoin is needed
-    def sort_state_by_reward(self, X, lengths, rewards):
-        self.hidden_states = self.hmm.predict(X)
-        map_from_state_to_reward = np.zeros(self.n_state)
-        start_ = 0
-        end_ = lengths[0]
-        for i in range(len(lengths)):
-            one_sequence = self.hidden_states[start_:end_]
-            for j in range(len(one_sequence)):
-                map_from_state_to_reward[one_sequence[j]] += rewards[i][j]
-
-            if i+1 == len(lengths):
-                break
-            start_ = end_
-            end_ += lengths[i+1]
-
-        for i in range(self.n_state):
-            if map_from_state_to_reward[i] != 0:
-                map_from_state_to_reward[i] /= str(self.hidden_states.tolist()).count(str(i))
-
-        print(map_from_state_to_reward)
-        self.map_index = np.argsort(map_from_state_to_reward)
-
-    def save_parameters(self):
-        dbfile = open('models/HMM/hmm', 'w')
-        pickle.dump(self.hmm, dbfile)
-        dbfile.close()
-        dbfile = open('models/HMM/map_index', 'w')
-        pickle.dump(self.map_index, dbfile)
-        dbfile.close()
-
-    def load_parameters(self):
-        dbfile = open('models/HMM/hmm', 'r')
-        self.hmm = pickle.load(dbfile)
-        dbfile.close()
-        dbfile = open('models/HMM/map_index', 'r')
-        self.map_index = pickle.load(dbfile)
-        dbfile.close()
-    
-    def save_training_data_and_states(self, X):
-        dbfile = open('models/HMM/training_data', 'w')
-        pickle.dump(X, dbfile)
-        dbfile.close()
-
-        dbfile = open('models/HMM/hidden_states', 'w')
-        pickle.dump(self.hidden_states, dbfile)
-        dbfile.close()
-
-
-class Differential_Driver():
-    def __init__(self):
-        print('[*] Building Differential Driver...')
-    
-    def run(self, x, y):
-        return [[x, y]]
