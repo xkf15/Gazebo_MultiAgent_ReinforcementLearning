@@ -23,6 +23,7 @@ class PositionGenerator
         bool Mode_6_Agent_2_OppositeTarget(int, std::vector<float>);
         bool Mode_7_Agent_4_OppositeTarget(int, std::vector<float>);
         bool Mode_8_Agent_16_OppositeTarget(int, std::vector<float>);
+        bool Mode_9_Agent_8_OppositeTarget(int, std::vector<float>);
         
         // API for getting result
         void ReturnAgentPositionByIndex(float&, float&, geometry_msgs::Quaternion&, int);

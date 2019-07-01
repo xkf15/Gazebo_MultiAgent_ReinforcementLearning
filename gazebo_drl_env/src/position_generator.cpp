@@ -264,7 +264,12 @@ bool RL::PositionGenerator::Mode_7_Agent_4_OppositeTarget(int aNum, std::vector<
                                        { 0.0, -4.0,  0.0, -4.0},  // 2
                                        {-4.0,  0.0, -4.0,  0.0},  // 3
                                        { 4.0,  0.0,  4.0,  0.0}}; // 4             
-    float yawBlock[4] = {0, 180, 90, 0};
+    float yawBlock[4] = {0, 90, 180, 0};
+    
+    yawBlock[0] = rand()%360;
+    yawBlock[1] = rand()%360;
+    yawBlock[2] = rand()%360;
+    yawBlock[3] = rand()%360;    
 
     // reset agent model
     this->position_X[aNum] = randomGenerator(randomEngine)*(agentPositionBlock[aNum][2]-agentPositionBlock[aNum][0])+agentPositionBlock[aNum][0];
@@ -280,7 +285,7 @@ bool RL::PositionGenerator::Mode_7_Agent_4_OppositeTarget(int aNum, std::vector<
 
 bool RL::PositionGenerator::Mode_8_Agent_16_OppositeTarget(int aNum, std::vector<float> allAgentPosition)
 {
-    float agentPositionBlock[16][4] = {{ 0.0,  0.0,  3.0,  3.0},  // 1
+/*    float agentPositionBlock[16][4] = {{ 0.0,  0.0,  3.0,  3.0},  // 1
                                        { 3.0,  3.0,  6.0,  6.0},  // 2
 
                                        { 0.0,  0.0, -3.0,  3.0},  // 3
@@ -309,6 +314,116 @@ bool RL::PositionGenerator::Mode_8_Agent_16_OppositeTarget(int aNum, std::vector
     for (int i = 0;i < 16;i++)
         for (int j = 0;j < 4;j++)
         targetPositionBlock[i][j] = -agentPositionBlock[i][j];
+*/
+    float agentPositionBlock[16][4] = {{ 0.0, -3.0,  0.0, -3.0},  // 1
+                                      { 0.0,  3.0,  0.0,  3.0},  // 2
+                                      { 3.0,  0.0,  3.0,  0.0},  // 3
+                                      {-3.0,  0.0, -3.0,  0.0},  // 4
+
+                                       { 2.12,  2.12, 2.12, 2.12},  // 5
+                                       { -2.12,  -2.12, -2.12, -2.12},  // 6
+
+                                       { 2.12,  -2.12, 2.12, -2.12},  // 7
+                                       { -2.12,  2.12, -2.12, 2.12}, //8
+
+                                       { 1.5, 2.6, 1.5, 2.6},  // 9
+                                      { 2.6, 1.5, 2.6, 1.5},  // 10
+                                      { -1.5, 2.6, -1.5, 2.6},  // 11
+                                      { -2.6, 1.5, -2.6, 1.5},  // 12
+
+                                       { -1.5, -2.6, -1.5, -2.6},  // 13
+                                       { -2.6, -1.5, -2.6, -1.5},  // 14
+
+                                       { 1.5, -2.6,  1.5, -2.6},  // 15
+                                       { 2.6, -1.5,  2.6, -1.5}}; // 16
+
+    float targetPositionBlock[16][4] = {{ 0.0,  4.0,  0.0,  4.0},  // 1
+                                       { 0.0, -4.0,  0.0, -4.0},  // 2
+                                       {-4.0,  0.0, -4.0,  0.0},  // 3
+                                       { 4.0,  0.0,  4.0,  0.0},
+																				
+																		   { -2.83,  -2.83, -2.83, -2.83},  // 5
+                                       { 2.83,  2.83, 2.83, 2.83},  // 6
+
+                                       { -2.83,  2.83, -2.83, 2.83},  // 7
+                                       { 2.83,  -2.83, 2.83, -2.83}, // 8    
+ 
+                                       { -2.0, -3.46, -2.0, -3.46},  // 9
+                                      { -3.46, -2.0, -3.46, -2.0},  // 10
+                                      { 2.0, -3.46, 2.0, -3.46},  // 11
+                                      { 3.46, -2.0, 3.46, -2.0},  // 12
+
+                                       { 2.0, 3.46, 2.0, 3.46},  // 13
+                                       { 3.46, 2.0, 3.46, 2.0},  // 14
+
+                                       { -2.0, 3.46, -2.0, 3.46},  // 15
+                                       { -3.46, 2.0, -3.46, 2.0}}; // 16
+
+        
+    float yawBlock[16] = {0, 0, 0, 0 , 0, 0, 0, 0, 0, 0, 0, 0 , 0, 0, 0, 0};
+    
+    yawBlock[0] = rand()%360;
+    yawBlock[1] = rand()%360;
+    yawBlock[2] = rand()%360;
+    yawBlock[3] = rand()%360;  
+    yawBlock[4] = rand()%360;  
+    yawBlock[5] = rand()%360;  
+    yawBlock[6] = rand()%360;  
+    yawBlock[7] = rand()%360;    
+    yawBlock[8] = rand()%360;
+    yawBlock[9] = rand()%360;
+    yawBlock[10] = rand()%360;
+    yawBlock[11] = rand()%360;  
+    yawBlock[12] = rand()%360;  
+    yawBlock[13] = rand()%360;  
+    yawBlock[14] = rand()%360;  
+    yawBlock[15] = rand()%360;    
+    // reset agent model
+    this->position_X[aNum] = randomGenerator(randomEngine)*(agentPositionBlock[aNum][2]-agentPositionBlock[aNum][0])+agentPositionBlock[aNum][0];
+    this->position_Y[aNum] = randomGenerator(randomEngine)*(agentPositionBlock[aNum][3]-agentPositionBlock[aNum][1])+agentPositionBlock[aNum][1];
+    this->position_Q[aNum] = tf::createQuaternionMsgFromYaw(yawBlock[aNum]);
+
+    // reset new targte
+    this->position_X[agentNumber+aNum] = randomGenerator(randomEngine)*(targetPositionBlock[aNum][2]-targetPositionBlock[aNum][0])+targetPositionBlock[aNum][0];
+    this->position_Y[agentNumber+aNum] = randomGenerator(randomEngine)*(targetPositionBlock[aNum][3]-targetPositionBlock[aNum][1])+targetPositionBlock[aNum][1];
+
+    return true;
+}
+
+bool RL::PositionGenerator::Mode_9_Agent_8_OppositeTarget(int aNum, std::vector<float> allAgentPosition)
+{
+    float agentPositionBlock[8][4] = {{ 0.0, -3.0,  0.0, -3.0},  // 1
+                                      { 0.0,  3.0,  0.0,  3.0},  // 2
+                                      { 3.0,  0.0,  3.0,  0.0},  // 3
+                                      {-3.0,  0.0, -3.0,  0.0},  // 4
+
+                                       { 2.12,  2.12, 2.12, 2.12},  // 5
+                                       { -2.12,  -2.12, -2.12, -2.12},  // 6
+
+                                       { 2.12,  -2.12, 2.12, -2.12},  // 7
+                                       { -2.12,  2.12, -2.12, 2.12}}; // 8
+
+    float targetPositionBlock[8][4] = {{ 0.0,  4.0,  0.0,  4.0},  // 1
+                                       { 0.0, -4.0,  0.0, -4.0},  // 2
+                                       {-4.0,  0.0, -4.0,  0.0},  // 3
+                                       { 4.0,  0.0,  4.0,  0.0},
+																				
+																		   { -2.83,  -2.83, -2.83, -2.83},  // 5
+                                       { 2.83,  2.83, 2.83, 2.83},  // 6
+
+                                       { -2.83,  2.83, -2.83, 2.83},  // 7
+                                       { 2.83,  -2.83, 2.83, -2.83}}; // 8     
+        
+    float yawBlock[8] = {0, 0, 0, 0 , 0, 0, 0, 0};
+    
+    yawBlock[0] = rand()%360;
+    yawBlock[1] = rand()%360;
+    yawBlock[2] = rand()%360;
+    yawBlock[3] = rand()%360;  
+    yawBlock[4] = rand()%360;  
+    yawBlock[5] = rand()%360;  
+    yawBlock[6] = rand()%360;  
+    yawBlock[7] = rand()%360;    
 
     // reset agent model
     this->position_X[aNum] = randomGenerator(randomEngine)*(agentPositionBlock[aNum][2]-agentPositionBlock[aNum][0])+agentPositionBlock[aNum][0];

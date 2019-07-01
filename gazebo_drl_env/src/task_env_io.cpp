@@ -335,6 +335,8 @@ bool RL::TaskEnvIO::ResetOneAgent(std::string robotName)
                 positionGenerator->Mode_7_Agent_4_OppositeTarget(i, allAgentPosition);
             else if (this->mapType == 8)
                 positionGenerator->Mode_8_Agent_16_OppositeTarget(i, allAgentPosition);
+            else if (this->mapType == 9)
+                positionGenerator->Mode_9_Agent_8_OppositeTarget(i, allAgentPosition);
             else
                 ROS_ERROR("NO SUCH MAP NUMBER");
 
