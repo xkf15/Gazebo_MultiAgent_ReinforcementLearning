@@ -27,12 +27,11 @@ import utils
 ## ------------------------------
 
 # 1 - train target driven actor, I think it is useless now.
-# 2 - train collision avoidance actor
+# 2 - train DDPG
 # 3 - differential driver
 TRAIN_TYPE = 2
 
 MAX_OPTIMIZATION_STEP = 10#30
-TIME_DELAY = 1#5
 STATE_DIM = 2
 SENSOR_DIM = 360
 ACTION_DIM = 2
@@ -52,7 +51,6 @@ USE_HER = False
 USE_DIR = False
 USE_TEST = True
 USE_SHAPED_REWARD = False
-USE_LASER_REWARD = False #True
 USE_SURVIVE_REWARD = False
 
 CONTINUE_TRAIN = True
@@ -113,7 +111,6 @@ TERMINAL_REWARD, COLLISION_REWARD, SURVIVE_REWARD = utils.get_parameters('../../
 if CONTINUE_TRAIN is True:
     model.load_models('models/best_ca_actor.model', 'models/best_ca_critic.model')
     model.copy_weights()
-    #model.load_buffer()
 
 losses = []
 model.noise.reset()
@@ -186,9 +183,7 @@ for i_episode in range(MAX_EPISODES):
         for i_agents in range(AGENT_NUMBER):
             # update current state
             all_current_states.group_state[i_agents] = copy.deepcopy(resp_.all_group_states.group_state[i_agents])
-            #print(all_current_states.group_state[i_agents].laserScan)
-            #if i_agents == 0:
-            #    print(all_current_states.group_state[i_agents])
+            # inference
             all_controls.group_control[i_agents].linear_x, all_controls.group_control[i_agents].angular_z = \
             model.sample_action(current_state=all_current_states.group_state[i_agents], explore=True)
 
@@ -197,43 +192,40 @@ for i_episode in range(MAX_EPISODES):
 
         # implement action and get response during some time
         # when one agent is terminated, start a new step after reseting
-        for t in range(TIME_DELAY):
-            time.sleep(0.001)
-            pause_gazebo()
-            time.sleep(0.1)
-            resp_ = pytorch_io_service(all_controls)
-            if GENERATE_LASER_FORM_POS is True:
-                resp_.all_group_states.group_state = utils.generate_laser_from_pos(resp_.all_group_states.group_state, LASER_RANGE, ROBOT_LENGTH)
-            unpause_gazebo()
-            all_controls = utils.check_reset_flag(all_controls, AGENT_NUMBER)
+        time.sleep(0.001)
+        pause_gazebo()
+        time.sleep(0.1)
+        # get new states
+        resp_ = pytorch_io_service(all_controls)
+        if GENERATE_LASER_FORM_POS is True:
+            resp_.all_group_states.group_state = utils.generate_laser_from_pos(resp_.all_group_states.group_state, LASER_RANGE, ROBOT_LENGTH)
+        unpause_gazebo()
+        all_controls = utils.check_reset_flag(all_controls, AGENT_NUMBER)
 
-# test whether blocked
-#            if t is 0:
-#                print(0, all_controls.group_control[0].linear_x, all_controls.group_control[0].angular_z)
+        # test whether crashed
+        for i_agents in range(AGENT_NUMBER):
+            # update all states
+            if (terminate_flag[i_agents] == 0):
+                all_next_states.group_state[i_agents] = copy.deepcopy(resp_.all_group_states.group_state[i_agents])
 
-            for i_agents in range(AGENT_NUMBER):
-                # update all states
-                if (terminate_flag[i_agents] == 0):
-                    all_next_states.group_state[i_agents] = copy.deepcopy(resp_.all_group_states.group_state[i_agents])
-
-                # check terminal flags
-                if all_next_states.group_state[i_agents].terminal and reset_coldtime[i_agents] == 0:
-                    reset_coldtime[i_agents] = 1
-                    terminate_flag[i_agents] = 1
-                    # all_controls.group_control[i_agents].reset = True
-                    if all_next_states.group_state[i_agents].reward == TERMINAL_REWARD:
-                        if terminal_flag[i_agents] == False:
-                            succeed_time += 1
-                            succeed_time_episode += 1
-                        terminal_flag[i_agents] = True
-                        all_controls.group_control[i_agents].reset = True
-                        for tt in range(AGENT_NUMBER):
-                            if terminal_flag[tt] == False:
-                                all_controls.group_control[i_agents].reset = False
-                    elif all_next_states.group_state[i_agents].reward == COLLISION_REWARD:
-                        crash_time += 1
-                        crash_time_episode += 1
-                        all_controls.group_control[i_agents].reset = True
+            # check terminal flags
+            if all_next_states.group_state[i_agents].terminal and reset_coldtime[i_agents] == 0:
+                reset_coldtime[i_agents] = 1
+                terminate_flag[i_agents] = 1
+                # all_controls.group_control[i_agents].reset = True
+                if all_next_states.group_state[i_agents].reward == TERMINAL_REWARD:
+                    if terminal_flag[i_agents] == False:
+                        succeed_time += 1
+                        succeed_time_episode += 1
+                    terminal_flag[i_agents] = True
+                    all_controls.group_control[i_agents].reset = True
+                    for tt in range(AGENT_NUMBER):
+                        if terminal_flag[tt] == False:
+                            all_controls.group_control[i_agents].reset = False
+                elif all_next_states.group_state[i_agents].reward == COLLISION_REWARD:
+                    crash_time += 1
+                    crash_time_episode += 1
+                    all_controls.group_control[i_agents].reset = True
         
         pytorch_io_service(all_controls) # reset
         pause_gazebo()
@@ -266,61 +258,24 @@ for i_episode in range(MAX_EPISODES):
                 reset_terminal_flags = False
         if reset_terminal_flags == True:
             terminal_flag = [False for i in range(AGENT_NUMBER)]
-            
 
     # exploration params decay
     model.noise.decay()
-
 
     #####################################
     ##### For experience generating #####
     #####################################
     for i_experiment in episode_experience.keys():
         step_number = len(episode_experience[i_experiment])
-
         # forget too short experimence
         if step_number < MIN_EXPERIMENCE_NUMBER:
             continue
 
-        # original HER experience
-        #new_goals = utils.sample_new_targets(episode_experience[i_experiment], HER_K)
         for i_step in range(step_number):
-
-            # increase positive reward experience
-            #new_goals = utils.increase_positive_target(episode_experience[i_experiment], HER_K, i_step)
-            new_experience = episode_experience[i_experiment][i_step]
-            if TRAIN_TYPE == 1 and USE_SHAPED_REWARD is True:
-                new_experience = utils.shaped_reward_experience(new_experience)    
-            if TRAIN_TYPE == 2 and USE_LASER_REWARD is True:
-                new_experience = utils.laser_shape_reward_experience(new_experience)   
-
-            # new_experience = utils.generate_experience(new_experience)
+            new_experience = episode_experience[i_experiment][i_step]   
             model.buffer.add(new_experience)
 
-            '''
-            # save directional experience
-            if USE_DIR and episode_experience[i_experiment][i_step][20] == -1.0:
-                # collision happens
-                new_experience = utils.update_action_and_reward(episode_experience[i_experiment][i_step])
-                new_experience = utils.generate_experience(new_experience)
-                model.buffer.add(new_experience)
-
-            # save HER experimence
-            if USE_HER:
-                for i_goal in new_goals:
-                    # use distance to tolearant the error
-                    if utils.distance(i_goal[0], i_goal[1], episode_experience[i_experiment][i_step][6], episode_experience[i_experiment][i_step][7]) <= TARGET_THRESHOLD:
-                        new_reward = 1.0 
-                    else:
-                        new_reward = 0.0 
-
-                    # save eaperimence
-                    new_experience = utils.update_goal_and_reward(episode_experience[i_experiment][i_step], i_goal, new_reward)
-                    new_experience = utils.generate_experience(new_experience)
-                    model.buffer.add(new_experience)
-            '''
-
-    # test time
+    # test time, for profiling
     experience_time_end = time.time()
 
     ########################
@@ -330,7 +285,6 @@ for i_episode in range(MAX_EPISODES):
         for i_learning in range(MAX_OPTIMIZATION_STEP):
             loss_c, loss_a = model.learn()
             losses.append([loss_c.cpu().data.tolist(), loss_a.cpu().data.tolist(), succeed_time_episode, crash_time_episode])
-            # print(loss_c.cpu().data.tolist(), loss_a.cpu().data.tolist() ,crash_time_episode)
         print('Episode: %d | A-loss: %6f | C-loss: %6f | Succeed : %d | Crash : %d | Buffer : %d' % (i_episode+1, loss_a, loss_c, succeed_time_episode, crash_time_episode, model.buffer.len))
         dbfile = open('result/loss/loss.txt', 'w')
         pickle.dump(losses, dbfile)
@@ -388,33 +342,32 @@ for i_episode in range(MAX_EPISODES):
 
                 # implement action and get response during some time
                 # when one agent is terminated, start a new step after reseting
-                for t in range(TIME_DELAY):
-                    time.sleep(0.001)
-                    pause_gazebo()
-                    time.sleep(0.1)
-                    resp_ = pytorch_io_service(all_controls)
-                    if GENERATE_LASER_FORM_POS is True:
-                        resp_.all_group_states.group_state = utils.generate_laser_from_pos(resp_.all_group_states.group_state, LASER_RANGE, ROBOT_LENGTH)
-                    unpause_gazebo()
+                time.sleep(0.001)
+                pause_gazebo()
+                time.sleep(0.1)
+                resp_ = pytorch_io_service(all_controls)
+                if GENERATE_LASER_FORM_POS is True:
+                    resp_.all_group_states.group_state = utils.generate_laser_from_pos(resp_.all_group_states.group_state, LASER_RANGE, ROBOT_LENGTH)
+                unpause_gazebo()
 
-                    all_controls = utils.check_reset_flag(all_controls, AGENT_NUMBER)
-                    for i_agents in range(AGENT_NUMBER):
-                        # check terminal flags
-                        if resp_.all_group_states.group_state[i_agents].terminal and reset_coldtime[i_agents] == 0:
-                            reset_coldtime[i_agents] = 1
-                            #all_controls.group_control[i_agents].reset = True
-                            total_reward += resp_.all_group_states.group_state[i_agents].reward
-                            if resp_.all_group_states.group_state[i_agents].reward == TERMINAL_REWARD:
-                                if terminal_flag[i_agents] == False:
-                                    test_success_time += 1
-                                terminal_flag[i_agents] = True
-                                all_controls.group_control[i_agents].reset = True
-                                for tt in range(AGENT_NUMBER):
-                                    if terminal_flag[tt] == False:
-                                        all_controls.group_control[i_agents].reset = False
-                            elif resp_.all_group_states.group_state[i_agents].reward == COLLISION_REWARD:
-                                test_crash_time += 1
-                                all_controls.group_control[i_agents].reset = True
+                all_controls = utils.check_reset_flag(all_controls, AGENT_NUMBER)
+                for i_agents in range(AGENT_NUMBER):
+                    # check terminal flags
+                    if resp_.all_group_states.group_state[i_agents].terminal and reset_coldtime[i_agents] == 0:
+                        reset_coldtime[i_agents] = 1
+                        #all_controls.group_control[i_agents].reset = True
+                        total_reward += resp_.all_group_states.group_state[i_agents].reward
+                        if resp_.all_group_states.group_state[i_agents].reward == TERMINAL_REWARD:
+                            if terminal_flag[i_agents] == False:
+                                test_success_time += 1
+                            terminal_flag[i_agents] = True
+                            all_controls.group_control[i_agents].reset = True
+                            for tt in range(AGENT_NUMBER):
+                                if terminal_flag[tt] == False:
+                                    all_controls.group_control[i_agents].reset = False
+                        elif resp_.all_group_states.group_state[i_agents].reward == COLLISION_REWARD:
+                            test_crash_time += 1
+                            all_controls.group_control[i_agents].reset = True
                     
                 pytorch_io_service(all_controls) # reset
                 pause_gazebo()
