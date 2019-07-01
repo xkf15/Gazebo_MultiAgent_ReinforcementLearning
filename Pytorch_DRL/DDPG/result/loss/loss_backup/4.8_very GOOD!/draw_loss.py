@@ -13,7 +13,7 @@ crash_time = []
 crash_time_average = []
 success_time = []
 
-for i in range(data_len):
+for i in range(24000):
     c_loss.append(data[i][0])
     a_loss.append(data[i][1])
     if i % 10 == 0:
@@ -26,6 +26,8 @@ for i in range(data_len):
 #plt.plot(c_loss)
 #plt.title('actor_loss')
 #plt.plot(a_loss)
-plt.title('crash times')
+plt.title('Crash Times')
 plt.plot(crash_time)
+plt.ylabel('Crash Times/Episode')
+plt.xlabel('Episode')
 plt.show()

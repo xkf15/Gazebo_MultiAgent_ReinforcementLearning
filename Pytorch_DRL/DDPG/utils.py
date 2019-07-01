@@ -59,17 +59,13 @@ def combine_states(all_current_states, all_next_states, all_controls, i_agents, 
     
 # we use the reward reciprocal to the distance
 def add_all_rewards(current_state, next_state, omega_target, reward_one_step):
-    # we add a small param 0.1 to the distance, incase there will be zero on the denominator
-    distance_current = 0.1 + distance(current_state.current_x, current_state.current_y, current_state.target_x, current_state.target_y)
-    distance_next = 0.1 + distance(next_state.current_x, next_state.current_y, next_state.target_x, next_state.target_y)
+    distance_current = distance(current_state.current_x, current_state.current_y, current_state.target_x, current_state.target_y)
+    distance_next = distance(next_state.current_x, next_state.current_y, next_state.target_x, next_state.target_y)
     distance_reward = 0
     distance_reward = omega_target * (distance_current - distance_next)
-    laser_reward = 5.0 * ( min(remapping_laser_data(next_state.laserScan)) - min(remapping_laser_data(current_state.laserScan)))
-#    print laser_reward
-#    if distance_current > 3.0:
-#        distance_reward = omega_target/2 * (distance_current - distance_next)
-#    else:
-#        distance_reward = omega_target * (1/distance_next - 1/distance_current)
+    distance_penalty_current = min(min(remapping_laser_data(current_state.laserScan)) + 3.0, 0)
+    distance_penalty_next = min(min(remapping_laser_data(next_state.laserScan)) + 3.0, 0)
+    laser_reward = 5.0 * (distance_penalty_next - distance_penalty_current)
     return next_state.reward + distance_reward + laser_reward# + reward_one_step
 
 def initialze_all_states_var(temp_state, all_current_states, all_next_states, agent_number):

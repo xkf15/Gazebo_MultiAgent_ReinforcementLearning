@@ -26,8 +26,10 @@ for i in range(data_len):
         if i >= 750:
             crash_time_average.append(sum(crash_time[-5:-1])/5)
 
-plt.title('critic_loss')
+plt.title('8 Agents Training')
 plt.plot(c_smooth)
+plt.ylabel('Critic Loss')
+plt.xlabel('Training Times')
 #plt.title('actor_loss')
 #plt.plot(a_loss)
 #plt.title('crash times')

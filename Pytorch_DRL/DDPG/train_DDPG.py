@@ -13,6 +13,8 @@ from gazebo_drl_env.msg import state_group_msgs
 from gazebo_drl_env.msg import control_msgs
 from gazebo_drl_env.msg import state_msgs
 
+from std_srvs.srv import Empty, EmptyRequest # for pausing and unpausing gazebo
+
 from cv_bridge import CvBridge
 
 # remove the ros packages path, or cv2 can not work
@@ -53,7 +55,7 @@ USE_SHAPED_REWARD = False
 USE_LASER_REWARD = False #True
 USE_SURVIVE_REWARD = False
 
-CONTINUE_TRAIN = False
+CONTINUE_TRAIN = True
 
 # use absolute coordinate to generate
 GENERATE_LASER_FORM_POS = True
@@ -73,13 +75,27 @@ theta = 2
 sigma = 0.8#1.0#0.2
 
 # learning rate
-actor_lr = 1e-5 # 1e-4
-critic_lr = 1e-4 # 1e-3
+actor_lr = 3e-5 # 1e-4
+critic_lr = 3e-4 # 1e-3
 batch_size = 256
 
 # update parameters
 gamma = 0.99
 tau = 0.001
+
+## ------------------------------
+
+# pause Gazebo simulation
+def pause_gazebo():
+    rospy.wait_for_service('/gazebo/pause_physics')
+    pause = rospy.ServiceProxy('/gazebo/pause_physics', Empty) 
+    return pause(EmptyRequest())
+
+# unpause Gazebo simulation
+def unpause_gazebo():
+    rospy.wait_for_service('/gazebo/unpause_physics')
+    pause = rospy.ServiceProxy('/gazebo/unpause_physics', Empty) 
+    return pause(EmptyRequest())
 
 ## ------------------------------
 
@@ -142,16 +158,18 @@ for i_episode in range(MAX_EPISODES):
         current_control.angular_z = 0.0
         current_control.reset = True
         all_controls.group_control.append(current_control)
-    pytorch_io_service(all_controls)
+    pytorch_io_service(all_controls) # reset
     
     # after reseting, publish a new action for all agents
     for i in range(AGENT_NUMBER):
         all_controls.group_control[i].reset = False
+
+    pause_gazebo()
+    time.sleep(0.1)
     resp_ = pytorch_io_service(all_controls)
     if GENERATE_LASER_FORM_POS is True:
         resp_.all_group_states.group_state = utils.generate_laser_from_pos(resp_.all_group_states.group_state, LASER_RANGE, ROBOT_LENGTH)
-    time.sleep(0.001)
-    
+    unpause_gazebo()
 
     episode_experience = defaultdict(list)
     terminate_flag = np.zeros(AGENT_NUMBER)
@@ -159,7 +177,6 @@ for i_episode in range(MAX_EPISODES):
     experimence_mapping = np.arange(AGENT_NUMBER)
     reset_coldtime = np.zeros(AGENT_NUMBER)
     addition_experience = AGENT_NUMBER
-
 
     ###########################################################################
     ##### For experience collecting (Interacting with Gazebo environment) #####
@@ -181,9 +198,13 @@ for i_episode in range(MAX_EPISODES):
         # implement action and get response during some time
         # when one agent is terminated, start a new step after reseting
         for t in range(TIME_DELAY):
+            time.sleep(0.001)
+            pause_gazebo()
+            time.sleep(0.1)
             resp_ = pytorch_io_service(all_controls)
             if GENERATE_LASER_FORM_POS is True:
                 resp_.all_group_states.group_state = utils.generate_laser_from_pos(resp_.all_group_states.group_state, LASER_RANGE, ROBOT_LENGTH)
+            unpause_gazebo()
             all_controls = utils.check_reset_flag(all_controls, AGENT_NUMBER)
 
 # test whether blocked
@@ -213,10 +234,14 @@ for i_episode in range(MAX_EPISODES):
                         crash_time += 1
                         crash_time_episode += 1
                         all_controls.group_control[i_agents].reset = True
-            time.sleep(0.001)
-        resp_ = pytorch_io_service(all_controls) # make sure reset operation has been done
+        
+        pytorch_io_service(all_controls) # reset
+        pause_gazebo()
+        time.sleep(0.1)
+        resp_ = pytorch_io_service(all_controls) # get next state
         if GENERATE_LASER_FORM_POS is True:
             resp_.all_group_states.group_state = utils.generate_laser_from_pos(resp_.all_group_states.group_state, LASER_RANGE, ROBOT_LENGTH)
+        unpause_gazebo()
 
         # check if one agent start a new loop
         for i_agents in range(AGENT_NUMBER):
@@ -344,10 +369,12 @@ for i_episode in range(MAX_EPISODES):
             # after reseting, publish a new action for all agents
             for i in range(AGENT_NUMBER):
                 all_controls.group_control[i].reset = False
-            time.sleep(0.001)
+            pause_gazebo()
+            time.sleep(0.1)
             resp_ = pytorch_io_service(all_controls)
             if GENERATE_LASER_FORM_POS is True:
                 resp_.all_group_states.group_state = utils.generate_laser_from_pos(resp_.all_group_states.group_state, LASER_RANGE, ROBOT_LENGTH)
+            unpause_gazebo()
 
             reset_coldtime = np.zeros(AGENT_NUMBER)
 
@@ -362,9 +389,13 @@ for i_episode in range(MAX_EPISODES):
                 # implement action and get response during some time
                 # when one agent is terminated, start a new step after reseting
                 for t in range(TIME_DELAY):
+                    time.sleep(0.001)
+                    pause_gazebo()
+                    time.sleep(0.1)
                     resp_ = pytorch_io_service(all_controls)
                     if GENERATE_LASER_FORM_POS is True:
                         resp_.all_group_states.group_state = utils.generate_laser_from_pos(resp_.all_group_states.group_state, LASER_RANGE, ROBOT_LENGTH)
+                    unpause_gazebo()
 
                     all_controls = utils.check_reset_flag(all_controls, AGENT_NUMBER)
                     for i_agents in range(AGENT_NUMBER):
@@ -384,10 +415,14 @@ for i_episode in range(MAX_EPISODES):
                             elif resp_.all_group_states.group_state[i_agents].reward == COLLISION_REWARD:
                                 test_crash_time += 1
                                 all_controls.group_control[i_agents].reset = True
-                    time.sleep(0.001)
-                resp_ = pytorch_io_service(all_controls) # make sure reset operation has been done
+                    
+                pytorch_io_service(all_controls) # reset
+                pause_gazebo()
+                time.sleep(0.1)
+                resp_ = pytorch_io_service(all_controls) # get next state
                 if GENERATE_LASER_FORM_POS is True:
                     resp_.all_group_states.group_state = utils.generate_laser_from_pos(resp_.all_group_states.group_state, LASER_RANGE, ROBOT_LENGTH)
+                unpause_gazebo()
 
                 # reset terminal flags
                 reset_terminal_flags = True
@@ -403,9 +438,9 @@ for i_episode in range(MAX_EPISODES):
         success_rate = test_success_time # * 1.0 / (test_success_time + test_crash_time)
         outfile = open("test_rate.txt", 'a')
         outfile.write(str(success_rate))
-        if success_rate >= max_test_success_time:
+        if success_rate >= 0:#max_test_success_time:
             max_test_success_time = success_rate
-            model.save_models('models/best_ca_actor.model', 'models/best_ca_critic.model')
+            model.save_models('models/best_ca_actor_' + str(i_episode+1) + '.model', 'models/best_ca_critic_' + str(i_episode+1) + '.model')
 #        if TRAIN_TYPE is not 2:
 #            outfile.write(str(test_success_rate))
 #            if test_success_rate >= max_test_success_time:

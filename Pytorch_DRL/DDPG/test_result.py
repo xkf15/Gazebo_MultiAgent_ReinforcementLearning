@@ -33,7 +33,7 @@ STATE_DIM = 2
 SENSOR_DIM = 360
 ACTION_DIM = 2
 TARGET_THRESHOLD = 0.01
-AGENT_NUMBER = 4
+AGENT_NUMBER = 8
 
 MAX_EPISODES = 100
 MAX_STEPS = 999999#30
@@ -95,14 +95,13 @@ first_time = 1
 success_time = 0
 collision_time = 0
 
+exe_time = []
+
 for i_episode in range(MAX_EPISODES):
 
     # save trajectory
     agent_trajectory = defaultdict(list)
     agent_keypoint = defaultdict(list)
-
-    # record start time
-    time_start = time.time()
 
     crash_time_episode = 0
     succeed_time_episode = 0
@@ -135,11 +134,14 @@ for i_episode in range(MAX_EPISODES):
     resp_ = pytorch_io_service(all_controls)
     if GENERATE_LASER_FORM_POS is True:
         resp_.all_group_states.group_state = utils.generate_laser_from_pos(resp_.all_group_states.group_state, LASER_RANGE, ROBOT_LENGTH)
-    time.sleep(0.0015)
+    time.sleep(0.05)
 
     terminate_flag = np.zeros(AGENT_NUMBER)
     survive_time = np.zeros(AGENT_NUMBER)
     reset_coldtime = np.zeros(AGENT_NUMBER)
+
+    # record start time
+    time_start = time.time()
 
     # interacting with the environment
     for i_step in range(MAX_STEPS):
@@ -188,10 +190,12 @@ for i_episode in range(MAX_EPISODES):
 #                if first_time == 1:
                 agent_trajectory[i_agents].append([all_next_states.group_state[i_agents].current_x, all_next_states.group_state[i_agents].current_y])
 
-            time.sleep(0.0015)
+            time.sleep(0.05)
         resp_ = pytorch_io_service(all_controls) # make sure reset operation has been done
         if GENERATE_LASER_FORM_POS is True:
             resp_.all_group_states.group_state = utils.generate_laser_from_pos(resp_.all_group_states.group_state, LASER_RANGE, ROBOT_LENGTH)
+
+
 
         # check if one agent start a new loop
         for i_agents in range(AGENT_NUMBER):
@@ -218,26 +222,30 @@ for i_episode in range(MAX_EPISODES):
     time_end = time.time()
     time_episode = time_end - time_start
 
-    if first_time == 1:
-        dbfile = open('figures_utils/trajectory', 'w')
-        pickle.dump(agent_trajectory, dbfile)
-        dbfile.close()    
-        dbfile = open('figures_utils/keypoint', 'w')
-        pickle.dump(agent_keypoint, dbfile)
-        dbfile.close()   
-        first_time = 0
-    else:
-        dbfile = open('figures_utils/trajectory', 'a')
-        pickle.dump(agent_trajectory, dbfile)
-        dbfile.close()
-        dbfile = open('figures_utils/keypoint', 'a')
-        pickle.dump(agent_keypoint, dbfile)
-        dbfile.close()   
+    if collision_happen == False:
+        exe_time.append(time_episode)
+
+        if first_time == 1:
+            dbfile = open('figures_utils/trajectory', 'w')
+            pickle.dump(agent_trajectory, dbfile)
+            dbfile.close()    
+            dbfile = open('figures_utils/keypoint', 'w')
+            pickle.dump(agent_keypoint, dbfile)
+            dbfile.close()   
+            first_time = 0
+        else:
+            dbfile = open('figures_utils/trajectory', 'a')
+            pickle.dump(agent_trajectory, dbfile)
+            dbfile.close()
+            dbfile = open('figures_utils/keypoint', 'a')
+            pickle.dump(agent_keypoint, dbfile)
+            dbfile.close()   
         #pbar.update()
     print('[*] Successfully arriving target times: {} | Crash times: {} | Steps this episode: {} | Time this episode: {}'.format(success_time, collision_time, i_step, time_episode))
     outfile = open("navigation_result.txt", 'a')
     outfile.write(str(success_time)+' '+str(collision_time)+' '+str(i_step)+' '+str(time_episode)+'\n')
     outfile.close()
 
+print('Time: Mean {} | Var {}'.format(np.mean(exe_time), np.var(exe_time)))
 
 

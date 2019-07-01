@@ -12,7 +12,7 @@ a_loss = []
 crash_time = []
 crash_time_average = []
 
-for i in range(data_len):
+for i in range(25000):
     c_loss.append(data[i][0])
     a_loss.append(data[i][1])
     if i % 30 == 0:
@@ -22,8 +22,10 @@ for i in range(data_len):
 
 #plt.title('critic_loss')
 #plt.plot(c_loss)
-plt.title('actor_loss(-critic_value)')
+plt.title('Actor Loss')
 plt.plot(a_loss)
+plt.ylabel('Actor Loss(-Q value)')
+plt.xlabel('Training Times')
 #plt.title('crash times')
 #plt.plot(crash_time_average)
 plt.show()

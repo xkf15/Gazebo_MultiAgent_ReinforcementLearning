@@ -22,8 +22,10 @@ for i in range(data_len):
 
 #plt.title('critic_loss')
 #plt.plot(c_loss)
-plt.title('actor_loss')
+plt.title('8 Agents Training')
 plt.plot(a_loss)
+plt.ylabel('-Q value')
+plt.xlabel('Training Times')
 #plt.title('crash times')
 #plt.plot(crash_time_average)
 plt.show()
